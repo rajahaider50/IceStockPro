@@ -7,6 +7,7 @@ import type {
   CartEntry,
   MachineType,
   PaymentMode,
+  Category,
 } from '../types';
 
 // ---------- ITEMS ----------
@@ -166,19 +167,21 @@ export async function updateSettings(changes: Partial<AppSettings>): Promise<voi
 // ---------- BACKUP / RESTORE ----------
 
 export async function exportAllData() {
-  const [items, purchases, sales, settings] = await Promise.all([
+  const [items, purchases, sales, settings, categories] = await Promise.all([
     db.items.toArray(),
     db.purchases.toArray(),
     db.sales.toArray(),
     db.settings.toArray(),
+    db.categories.toArray(),
   ]);
   return {
     exportedAt: Date.now(),
-    version: 1,
+    version: 2,
     items,
     purchases,
     sales,
     settings,
+    categories,
   };
 }
 
@@ -187,24 +190,78 @@ export async function importAllData(data: {
   purchases: PurchaseRecord[];
   sales: SaleRecord[];
   settings: AppSettings[];
+  categories?: Category[];
 }) {
-  await db.transaction('rw', db.items, db.purchases, db.sales, db.settings, async () => {
+  await db.transaction('rw', db.items, db.purchases, db.sales, db.settings, db.categories, async () => {
     await db.items.clear();
     await db.purchases.clear();
     await db.sales.clear();
     await db.settings.clear();
+    await db.categories.clear();
     await db.items.bulkAdd(data.items);
     await db.purchases.bulkAdd(data.purchases);
     await db.sales.bulkAdd(data.sales);
     await db.settings.bulkAdd(data.settings);
+    if (data.categories) await db.categories.bulkAdd(data.categories);
   });
 }
 
 export async function deleteAllData(): Promise<void> {
-  await db.transaction('rw', db.items, db.purchases, db.sales, db.settings, async () => {
+  await db.transaction('rw', db.items, db.purchases, db.sales, db.settings, db.categories, async () => {
     await db.items.clear();
     await db.purchases.clear();
     await db.sales.clear();
     await db.settings.clear();
+    await db.categories.clear();
   });
+}
+
+// ---------- CATEGORIES ----------
+
+export async function getAllCategories(): Promise<Category[]> {
+  return db.categories.orderBy('name').toArray();
+}
+
+export async function addCategory(cat: Omit<Category, 'id' | 'createdAt'>): Promise<number> {
+  const existing = await db.categories.where('name').equalsIgnoreCase(cat.name).first();
+  if (existing) {
+    throw new Error('A category with this name already exists');
+  }
+  const id = await db.categories.add({ ...cat, createdAt: Date.now() } as Category);
+  return id as number;
+}
+
+export async function updateCategory(id: number, changes: Partial<Category>): Promise<void> {
+  if (changes.name) {
+    const existing = await db.categories.where('name').equalsIgnoreCase(changes.name).first();
+    if (existing && existing.id !== id) {
+      throw new Error('A category with this name already exists');
+    }
+    // Rename: update all items pointing to old category name
+    const old = await db.categories.get(id);
+    if (old && old.name !== changes.name) {
+      const itemsToUpdate = await db.items.where('category').equals(old.name).toArray();
+      await Promise.all(
+        itemsToUpdate.map((it) => db.items.update(it.id!, { category: changes.name }))
+      );
+    }
+  }
+  await db.categories.update(id, changes);
+}
+
+export async function deleteCategory(id: number): Promise<{ blocked: boolean; count: number }> {
+  const cat = await db.categories.get(id);
+  if (!cat) return { blocked: false, count: 0 };
+  const itemsUsing = await db.items.where('category').equals(cat.name).toArray();
+  const activeCount = itemsUsing.filter((i) => i.isActive).length;
+  if (activeCount > 0) {
+    return { blocked: true, count: activeCount };
+  }
+  await db.categories.delete(id);
+  return { blocked: false, count: 0 };
+}
+
+export async function getCategoryItemCount(categoryName: string): Promise<number> {
+  const items = await db.items.where('category').equals(categoryName).toArray();
+  return items.filter((i) => i.isActive).length;
 }

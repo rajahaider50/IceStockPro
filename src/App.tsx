@@ -38,6 +38,29 @@ export default function App() {
     getLowStockItems().then((items) => setLowStockCount(items.length));
   }, [ready, refreshKey, activeTab]);
 
+  // Apply theme (light/dark/system) to the document root
+  useEffect(() => {
+    if (!settings) return;
+    const root = document.documentElement;
+
+    function applyDark(isDark: boolean) {
+      root.classList.toggle('dark', isDark);
+    }
+
+    if (settings.theme === 'dark') {
+      applyDark(true);
+    } else if (settings.theme === 'light') {
+      applyDark(false);
+    } else {
+      // system
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      applyDark(mq.matches);
+      const listener = (e: MediaQueryListEvent) => applyDark(e.matches);
+      mq.addEventListener('change', listener);
+      return () => mq.removeEventListener('change', listener);
+    }
+  }, [settings?.theme]);
+
   if (!ready || !settings) {
     return (
       <div className="h-full flex items-center justify-center bg-surface">

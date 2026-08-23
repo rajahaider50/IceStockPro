@@ -5,9 +5,8 @@ import EmptyState from '../common/EmptyState';
 import ItemFormSheet from '../stock/ItemFormSheet';
 import { useCartStore } from '../../store/useCartStore';
 import { useAppStore } from '../../store/useAppStore';
-import { getAllItems } from '../../db/queries';
-import { CATEGORY_MACHINE } from '../../types';
-import type { StockItem, AppSettings, MachineType } from '../../types';
+import { getAllItems, getAllCategories } from '../../db/queries';
+import type { StockItem, Category, AppSettings, MachineType } from '../../types';
 import { formatCurrency } from '../../utils/calculations';
 
 interface Props {
@@ -17,6 +16,7 @@ interface Props {
 
 export default function SalesPage({ settings, refreshKey }: Props) {
   const [items, setItems] = useState<StockItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [addItemOpen, setAddItemOpen] = useState(false);
   const machineType = useCartStore((s) => s.machineType);
@@ -30,16 +30,26 @@ export default function SalesPage({ settings, refreshKey }: Props) {
 
   useEffect(() => {
     getAllItems().then(setItems);
+    getAllCategories().then(setCategories);
   }, [refreshKey, appRefreshKey, cartOpen, addItemOpen]);
 
+  const categoryScopeMap = new Map(categories.map((c) => [c.name, c.machineType]));
+
   const machineItems = items.filter((i) => {
-    const m = CATEGORY_MACHINE[i.category];
-    return (m === machineType || m === 'both') && i.sellPrice > 0;
+    const scope = categoryScopeMap.get(i.category) ?? 'both';
+    return (scope === machineType || scope === 'both') && i.sellPrice > 0;
   });
 
   function handleTap(item: StockItem) {
+    const inCart = cart.find((c) => c.item.id === item.id);
+    const currentQty = inCart ? inCart.qty : 0;
+
     if (item.currentStock <= 0) {
       showToast('Out of stock!', 'error');
+      return;
+    }
+    if (currentQty >= item.currentStock) {
+      showToast(`Only ${item.currentStock} ${item.unit} in stock!`, 'error');
       return;
     }
     addToCart(item);
@@ -76,6 +86,7 @@ export default function SalesPage({ settings, refreshKey }: Props) {
           {machineItems.map((item) => {
             const inCart = cart.find((c) => c.item.id === item.id);
             const isOut = item.currentStock <= 0;
+            const atLimit = !!inCart && inCart.qty >= item.currentStock;
             return (
               <button
                 key={item.id}
@@ -96,6 +107,7 @@ export default function SalesPage({ settings, refreshKey }: Props) {
                 {item.variant && <p className="text-[10.5px] text-gray-400 truncate">{item.variant}</p>}
                 <p className="text-[13px] font-bold text-brand-600 mt-1">{formatCurrency(item.sellPrice, settings.currency)}</p>
                 {isOut && <span className="absolute top-2 right-2 text-[9px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full">OUT</span>}
+                {!isOut && atLimit && <span className="absolute top-2 right-2 text-[9px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded-full">MAX</span>}
                 {inCart && (
                   <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-brand-500 text-white text-[11px] font-bold flex items-center justify-center border-2 border-white">
                     {inCart.qty}

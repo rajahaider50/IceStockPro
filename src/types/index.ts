@@ -3,51 +3,23 @@
 // ==========================================
 
 export type MachineType = 'ice_cream' | 'juice';
+export type MachineScope = MachineType | 'both';
 
-export type ItemCategory =
-  | 'ice_cream_cup'
-  | 'juice_cup'
-  | 'cone'
-  | 'stick'
-  | 'spoon'
-  | 'shopper'
-  | 'rubber_band'
-  | 'flavor'
-  | 'syrup'
-  | 'other';
-
-export const CATEGORY_LABELS: Record<ItemCategory, string> = {
-  ice_cream_cup: 'Ice Cream Cup',
-  juice_cup: 'Juice Cup',
-  cone: 'Cone',
-  stick: 'Wooden Stick',
-  spoon: 'Spoon',
-  shopper: 'Shopper Bag',
-  rubber_band: 'Rubber Band',
-  flavor: 'Flavor Syrup',
-  syrup: 'Chocolate/Other Syrup',
-  other: 'Other',
-};
-
-export const CATEGORY_MACHINE: Record<ItemCategory, MachineType | 'both'> = {
-  ice_cream_cup: 'ice_cream',
-  cone: 'ice_cream',
-  stick: 'ice_cream',
-  juice_cup: 'juice',
-  flavor: 'juice',
-  spoon: 'both',
-  shopper: 'both',
-  rubber_band: 'both',
-  syrup: 'both',
-  other: 'both',
-};
+// Categories are now fully dynamic — user can add/edit/delete their own.
+export interface Category {
+  id?: number;
+  name: string;
+  machineType: MachineScope;
+  isBuiltIn?: boolean; // seeded default categories, still deletable but flagged
+  createdAt: number;
+}
 
 export type Unit = 'piece' | 'ml' | 'liter' | 'gram' | 'kg';
 
 export interface StockItem {
   id?: number;
   name: string;
-  category: ItemCategory;
+  category: string; // free reference to Category.name
   variant?: string; // e.g. "20 Rs", "Mango", "Large"
   unit: Unit;
   currentStock: number;
@@ -96,12 +68,14 @@ export interface SaleRecord {
   customerNote?: string;
 }
 
+export type ThemeMode = 'light' | 'dark' | 'system';
+
 export interface AppSettings {
   id?: number;
   shopName: string;
   logoPath?: string;
   currency: string; // e.g. "Rs"
-  theme: 'light' | 'dark' | 'system';
+  theme: ThemeMode;
   ownerName?: string;
   phone?: string;
   lastBackupDate?: number;

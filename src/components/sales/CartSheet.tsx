@@ -65,7 +65,16 @@ export default function CartSheet({ isOpen, onClose, settings }: Props) {
                   <Minus size={13} className="text-gray-500" />
                 </button>
                 <span className="text-[13px] font-bold w-5 text-center">{c.qty}</span>
-                <button onClick={() => incrementQty(c.item.id!)} className="w-6 h-6 rounded-full flex items-center justify-center tap-scale">
+                <button
+                  onClick={() => {
+                    if (c.qty >= c.item.currentStock) {
+                      showToast(`Only ${c.item.currentStock} ${c.item.unit} in stock!`, 'error');
+                      return;
+                    }
+                    incrementQty(c.item.id!);
+                  }}
+                  className="w-6 h-6 rounded-full flex items-center justify-center tap-scale"
+                >
                   <Plus size={13} className="text-gray-500" />
                 </button>
               </div>

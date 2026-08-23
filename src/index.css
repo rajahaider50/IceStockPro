@@ -96,6 +96,86 @@ input, textarea {
   background: white;
 }
 
+/* ===== Dark Theme Overrides ===== */
+/* Applied when <html> has class "dark". We override the common Tailwind
+   utility classes used across the app so we don't need to touch every
+   component file individually. */
+html.dark body {
+  background: var(--color-surface-dark);
+}
+html.dark .bg-surface {
+  background: var(--color-surface-dark) !important;
+}
+html.dark .bg-white {
+  background-color: #161c29 !important;
+}
+html.dark .bg-white\/90 {
+  background-color: rgba(22, 28, 41, 0.9) !important;
+}
+html.dark .bg-gray-50 {
+  background-color: #1b2231 !important;
+}
+html.dark .bg-gray-100 {
+  background-color: #222a3c !important;
+}
+html.dark .bg-gray-900 {
+  background-color: #05070c !important;
+}
+html.dark .border-gray-100 {
+  border-color: #262f42 !important;
+}
+html.dark .border-gray-200 {
+  border-color: #2c3649 !important;
+}
+html.dark .border-gray-200\/70 {
+  border-color: rgba(44, 54, 73, 0.7) !important;
+}
+html.dark .text-gray-900 {
+  color: #f1f5f9 !important;
+}
+html.dark .text-gray-800 {
+  color: #e2e8f0 !important;
+}
+html.dark .text-gray-700 {
+  color: #cbd5e1 !important;
+}
+html.dark .text-gray-600 {
+  color: #b3bfd1 !important;
+}
+html.dark .text-gray-500 {
+  color: #8a94a8 !important;
+}
+html.dark .text-gray-400 {
+  color: #64708a !important;
+}
+html.dark .text-gray-300 {
+  color: #4b5872 !important;
+}
+html.dark input.input-field,
+html.dark select.input-field {
+  background: #1b2231 !important;
+  border-color: #2c3649 !important;
+  color: #f1f5f9 !important;
+}
+html.dark .input-field::placeholder {
+  color: #64708a !important;
+}
+html.dark .bg-brand-50 {
+  background-color: rgba(5, 155, 242, 0.12) !important;
+}
+html.dark .bg-red-50 {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+}
+html.dark .bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.12) !important;
+}
+html.dark .bg-amber-50 {
+  background-color: rgba(245, 158, 11, 0.12) !important;
+}
+html.dark .bg-violet-50 {
+  background-color: rgba(139, 92, 246, 0.12) !important;
+}
+
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(-10px) translateX(-50%); }
   to { opacity: 1; transform: translateY(0) translateX(-50%); }

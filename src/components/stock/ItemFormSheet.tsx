@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Settings2 } from 'lucide-react';
 import BottomSheet from '../common/BottomSheet';
 import ConfirmDialog from '../common/ConfirmDialog';
 import NumberInput from '../common/NumberInput';
 import PhotoPicker from '../common/PhotoPicker';
-import type { StockItem, ItemCategory, Unit } from '../../types';
-import { CATEGORY_LABELS } from '../../types';
-import { addItem, updateItem, deleteItem } from '../../db/queries';
+import CategoryManagerSheet from '../common/CategoryManagerSheet';
+import type { StockItem, Unit, Category } from '../../types';
+import { addItem, updateItem, deleteItem, getAllCategories } from '../../db/queries';
 import { useAppStore } from '../../store/useAppStore';
 
 interface Props {
@@ -15,15 +15,12 @@ interface Props {
   editingItem: StockItem | null;
 }
 
-const categories: ItemCategory[] = [
-  'ice_cream_cup', 'juice_cup', 'cone', 'stick', 'spoon', 'shopper', 'rubber_band', 'flavor', 'syrup', 'other',
-];
 const units: Unit[] = ['piece', 'ml', 'liter', 'gram', 'kg'];
 
 const emptyForm = {
   name: '',
   variant: '',
-  category: 'ice_cream_cup' as ItemCategory,
+  category: '',
   unit: 'piece' as Unit,
   currentStock: 0,
   lowStockThreshold: 10,
@@ -34,10 +31,23 @@ const emptyForm = {
 
 export default function ItemFormSheet({ isOpen, onClose, editingItem }: Props) {
   const [form, setForm] = useState(emptyForm);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [saving, setSaving] = useState(false);
   const showToast = useAppStore((s) => s.showToast);
   const triggerRefresh = useAppStore((s) => s.triggerRefresh);
+  const appRefreshKey = useAppStore((s) => s.refreshKey);
+
+  useEffect(() => {
+    async function loadCats() {
+      const cats = await getAllCategories();
+      setCategories(cats);
+      // default the category dropdown to first available if empty
+      setForm((f) => (f.category || cats.length === 0 ? f : { ...f, category: cats[0].name }));
+    }
+    if (isOpen) loadCats();
+  }, [isOpen, categoryManagerOpen, appRefreshKey]);
 
   useEffect(() => {
     if (editingItem) {
@@ -60,6 +70,10 @@ export default function ItemFormSheet({ isOpen, onClose, editingItem }: Props) {
   async function handleSave() {
     if (!form.name.trim()) {
       showToast('Item name is required', 'error');
+      return;
+    }
+    if (!form.category) {
+      showToast('Please select or add a category', 'error');
       return;
     }
     setSaving(true);
@@ -118,17 +132,35 @@ export default function ItemFormSheet({ isOpen, onClose, editingItem }: Props) {
             />
           </Field>
 
-          <Field label="Category">
-            <select
-              value={form.category}
-              onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as ItemCategory }))}
-              className="input-field"
-            >
-              {categories.map((c) => (
-                <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
-              ))}
-            </select>
-          </Field>
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[11.5px] font-semibold text-gray-500">Category</label>
+              <button
+                onClick={() => setCategoryManagerOpen(true)}
+                className="flex items-center gap-1 text-[11px] font-semibold text-brand-600 tap-scale"
+              >
+                <Settings2 size={12} /> Manage
+              </button>
+            </div>
+            {categories.length === 0 ? (
+              <button
+                onClick={() => setCategoryManagerOpen(true)}
+                className="w-full input-field text-left text-gray-400"
+              >
+                No categories yet — tap to create one
+              </button>
+            ) : (
+              <select
+                value={form.category}
+                onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                className="input-field"
+              >
+                {categories.map((c) => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Unit">
@@ -176,6 +208,8 @@ export default function ItemFormSheet({ isOpen, onClose, editingItem }: Props) {
           )}
         </div>
       </BottomSheet>
+
+      <CategoryManagerSheet isOpen={categoryManagerOpen} onClose={() => setCategoryManagerOpen(false)} />
 
       <ConfirmDialog
         isOpen={confirmDelete}

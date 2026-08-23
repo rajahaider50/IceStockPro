@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Search, Plus, Package, Download } from 'lucide-react';
+import { Search, Plus, Package, Download, Settings2 } from 'lucide-react';
 import StockItemCard from './StockItemCard';
 import ItemFormSheet from './ItemFormSheet';
 import EmptyState from '../common/EmptyState';
-import { getAllItems } from '../../db/queries';
+import CategoryManagerSheet from '../common/CategoryManagerSheet';
+import { getAllItems, getAllCategories } from '../../db/queries';
 import { exportStockCSV } from '../../utils/csvExport';
 import { exportStockReportPDF } from '../../utils/pdfExport';
-import type { StockItem, ItemCategory, AppSettings } from '../../types';
-import { CATEGORY_LABELS } from '../../types';
+import type { StockItem, Category, AppSettings } from '../../types';
 
 interface Props {
   settings: AppSettings;
@@ -16,16 +16,18 @@ interface Props {
 
 export default function StockPage({ settings, refreshKey }: Props) {
   const [items, setItems] = useState<StockItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState('');
-  const [filterCategory, setFilterCategory] = useState<ItemCategory | 'all'>('all');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
 
   useEffect(() => {
     getAllItems().then(setItems);
-  }, [refreshKey, sheetOpen]);
+    getAllCategories().then(setCategories);
+  }, [refreshKey, sheetOpen, categoryManagerOpen]);
 
-  const categories = Array.from(new Set(items.map((i) => i.category)));
   const filtered = items.filter((i) => {
     const matchesSearch = (i.name + ' ' + (i.variant || '')).toLowerCase().includes(search.toLowerCase());
     const matchesCategory = filterCategory === 'all' || i.category === filterCategory;
@@ -44,12 +46,20 @@ export default function StockPage({ settings, refreshKey }: Props) {
             {settings.currency} {totalStockValue.toLocaleString()}
           </p>
         </div>
-        <button
-          onClick={() => exportStockReportPDF(items, settings)}
-          className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center tap-scale"
-        >
-          <Download size={16} className="text-gray-500" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCategoryManagerOpen(true)}
+            className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center tap-scale"
+          >
+            <Settings2 size={16} className="text-gray-500" />
+          </button>
+          <button
+            onClick={() => exportStockReportPDF(items, settings)}
+            className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center tap-scale"
+          >
+            <Download size={16} className="text-gray-500" />
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -67,8 +77,14 @@ export default function StockPage({ settings, refreshKey }: Props) {
       <div className="flex gap-2 overflow-x-auto no-scrollbar mb-4 -mx-4 px-4">
         <Chip label="All" active={filterCategory === 'all'} onClick={() => setFilterCategory('all')} />
         {categories.map((c) => (
-          <Chip key={c} label={CATEGORY_LABELS[c]} active={filterCategory === c} onClick={() => setFilterCategory(c)} />
+          <Chip key={c.id} label={c.name} active={filterCategory === c.name} onClick={() => setFilterCategory(c.name)} />
         ))}
+        <button
+          onClick={() => setCategoryManagerOpen(true)}
+          className="shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-semibold tap-scale bg-brand-50 text-brand-600 border border-dashed border-brand-300 flex items-center gap-1"
+        >
+          <Plus size={12} /> Category
+        </button>
       </div>
 
       {/* Items list */}
@@ -105,6 +121,7 @@ export default function StockPage({ settings, refreshKey }: Props) {
       </button>
 
       <ItemFormSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} editingItem={editingItem} />
+      <CategoryManagerSheet isOpen={categoryManagerOpen} onClose={() => setCategoryManagerOpen(false)} />
     </div>
   );
 }

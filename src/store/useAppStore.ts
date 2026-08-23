@@ -21,10 +21,14 @@ export const useAppStore = create<AppState>((set) => ({
   settings: null,
   setSettings: (s) => set({ settings: s }),
   toasts: [],
-  showToast: (message, type = 'success') =>
-    set((state) => ({
-      toasts: [...state.toasts, { id: Date.now() + Math.random(), message, type }],
-    })),
+  showToast: (message, type = 'success') => {
+    const id = Date.now() + Math.random();
+    set((state) => ({ toasts: [...state.toasts, { id, message, type }] }));
+    // Auto-dismiss quickly — just enough to catch the eye, then gone
+    setTimeout(() => {
+      set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }));
+    }, 1500);
+  },
   removeToast: (id) =>
     set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) })),
   refreshKey: 0,

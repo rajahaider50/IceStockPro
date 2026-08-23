@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react';
-import { Store, Download, Upload, Info, Trash2, AlertTriangle } from 'lucide-react';
+import { Store, Download, Upload, Info, Trash2, AlertTriangle, Sun, Moon, Smartphone, Tag, ChevronRight } from 'lucide-react';
 import BottomSheet from '../common/BottomSheet';
+import CategoryManagerSheet from '../common/CategoryManagerSheet';
 import { updateSettings, exportAllData, importAllData, deleteAllData } from '../../db/queries';
 import { useAppStore } from '../../store/useAppStore';
-import type { AppSettings } from '../../types';
+import type { AppSettings, ThemeMode } from '../../types';
 
 interface Props {
   isOpen: boolean;
@@ -14,12 +15,20 @@ interface Props {
 export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
   const [shopName, setShopName] = useState(settings.shopName);
   const [currency, setCurrency] = useState(settings.currency);
+  const [theme, setTheme] = useState<ThemeMode>(settings.theme || 'light');
   const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0); // 0 = closed, 1 = confirm, 2 = type to confirm
   const [confirmText, setConfirmText] = useState('');
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const showToast = useAppStore((s) => s.showToast);
   const setSettings = useAppStore((s) => s.setSettings);
   const triggerRefresh = useAppStore((s) => s.triggerRefresh);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleThemeChange(mode: ThemeMode) {
+    setTheme(mode);
+    await updateSettings({ theme: mode });
+    setSettings({ ...settings, theme: mode });
+  }
 
   async function handleSave() {
     await updateSettings({ shopName, currency });
@@ -85,9 +94,49 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
           <input value={currency} onChange={(e) => setCurrency(e.target.value)} className="input-field" />
         </div>
 
+        <div>
+          <label className="text-[11.5px] font-semibold text-gray-500 mb-1.5 block">Appearance</label>
+          <div className="flex gap-2">
+            {([
+              { value: 'light' as ThemeMode, label: 'Light', icon: Sun },
+              { value: 'dark' as ThemeMode, label: 'Dark', icon: Moon },
+              { value: 'system' as ThemeMode, label: 'Auto', icon: Smartphone },
+            ]).map((opt) => {
+              const Icon = opt.icon;
+              const active = theme === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => handleThemeChange(opt.value)}
+                  className={`flex-1 py-2.5 rounded-xl flex flex-col items-center gap-1 tap-scale ${
+                    active ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-500'
+                  }`}
+                >
+                  <Icon size={16} />
+                  <span className="text-[11px] font-semibold">{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <button onClick={handleSave} className="w-full py-3.5 rounded-2xl bg-brand-500 text-white font-bold text-[14px] tap-scale">
           Save Settings
         </button>
+
+        <div className="border-t border-gray-100 pt-4">
+          <p className="text-[12px] font-bold text-gray-500 mb-2">Item Management</p>
+          <button
+            onClick={() => setCategoryManagerOpen(true)}
+            className="w-full flex items-center gap-3 bg-white border border-gray-100 rounded-2xl p-3.5 tap-scale"
+          >
+            <div className="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center shrink-0">
+              <Tag size={16} className="text-brand-600" />
+            </div>
+            <span className="text-[13px] font-semibold text-gray-800 flex-1 text-left">Manage Categories</span>
+            <ChevronRight size={16} className="text-gray-300" />
+          </button>
+        </div>
 
         <div className="border-t border-gray-100 pt-4">
           <p className="text-[12px] font-bold text-gray-500 mb-2">Backup &amp; Restore</p>
@@ -132,6 +181,8 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
           </p>
         </div>
       </div>
+
+      <CategoryManagerSheet isOpen={categoryManagerOpen} onClose={() => setCategoryManagerOpen(false)} />
 
       {/* Step 1: initial warning */}
       {deleteStep === 1 && (
