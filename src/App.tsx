@@ -1,0 +1,83 @@
+import { useEffect, useState } from 'react';
+import Header from './components/common/Header';
+import BottomNav, { type TabKey } from './components/common/BottomNav';
+import ToastContainer from './components/common/ToastContainer';
+import Dashboard from './components/dashboard/Dashboard';
+import LowStockSheet from './components/dashboard/LowStockSheet';
+import StockPage from './components/stock/StockPage';
+import SalesPage from './components/sales/SalesPage';
+import PurchasePage from './components/purchase/PurchasePage';
+import ReportsPage from './components/reports/ReportsPage';
+import SettingsSheet from './components/settings/SettingsSheet';
+import { getSettings, getLowStockItems } from './db/queries';
+import { seedIfEmpty } from './utils/seedData';
+import { useAppStore } from './store/useAppStore';
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
+  const [ready, setReady] = useState(false);
+  const [lowStockCount, setLowStockCount] = useState(0);
+  const [lowStockOpen, setLowStockOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settings = useAppStore((s) => s.settings);
+  const setSettings = useAppStore((s) => s.setSettings);
+  const refreshKey = useAppStore((s) => s.refreshKey);
+
+  useEffect(() => {
+    async function init() {
+      await seedIfEmpty();
+      const s = await getSettings();
+      setSettings(s);
+      setReady(true);
+    }
+    init();
+  }, [setSettings]);
+
+  useEffect(() => {
+    if (!ready) return;
+    getLowStockItems().then((items) => setLowStockCount(items.length));
+  }, [ready, refreshKey, activeTab]);
+
+  if (!ready || !settings) {
+    return (
+      <div className="h-full flex items-center justify-center bg-surface">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-3 border-brand-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-[13px] text-gray-400 font-medium">Loading IceStock Pro...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-full bg-surface flex flex-col">
+      <Header
+        shopName={settings.shopName}
+        lowStockCount={lowStockCount}
+        onBellClick={() => setLowStockOpen(true)}
+        onSettingsClick={() => setSettingsOpen(true)}
+      />
+
+      <main className="flex-1 pb-20">
+        {activeTab === 'dashboard' && (
+          <Dashboard settings={settings} refreshKey={refreshKey} onViewLowStock={() => setLowStockOpen(true)} />
+        )}
+        {activeTab === 'stock' && <StockPage settings={settings} refreshKey={refreshKey} />}
+        {activeTab === 'sales' && <SalesPage settings={settings} refreshKey={refreshKey} />}
+        {activeTab === 'purchase' && <PurchasePage settings={settings} refreshKey={refreshKey} />}
+        {activeTab === 'reports' && <ReportsPage settings={settings} refreshKey={refreshKey} />}
+      </main>
+
+      <BottomNav active={activeTab} onChange={setActiveTab} />
+      <ToastContainer />
+
+      <LowStockSheet
+        isOpen={lowStockOpen}
+        onClose={() => setLowStockOpen(false)}
+        settings={settings}
+        refreshKey={refreshKey}
+      />
+      <SettingsSheet isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} settings={settings} />
+    </div>
+  );
+}

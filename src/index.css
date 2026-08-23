@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: 'Inter', 'SF Pro Display', system-ui, sans-serif;
+
+  --color-brand-50: #eff9ff;
+  --color-brand-100: #dcf1ff;
+  --color-brand-200: #b3e4ff;
+  --color-brand-300: #75d1ff;
+  --color-brand-400: #2fb8ff;
+  --color-brand-500: #059bf2;
+  --color-brand-600: #0079d0;
+  --color-brand-700: #0060a8;
+  --color-brand-800: #04518b;
+  --color-brand-900: #0a4573;
+
+  --color-mint-400: #2dd4bf;
+  --color-mint-500: #14b8a6;
+
+  --color-surface: #f7f9fc;
+  --color-surface-dark: #0f1420;
+}
+
+:root {
+  color-scheme: light;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body, #root {
+  height: 100%;
+  overscroll-behavior-y: none;
+}
+
+body {
+  font-family: var(--font-display);
+  background: var(--color-surface);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+input, textarea {
+  user-select: text;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tap-scale {
+  transition: transform 0.1s ease;
+}
+.tap-scale:active {
+  transform: scale(0.96);
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 0.2s ease;
+}
+
+.input-field {
+  width: 100%;
+  background: #f7f9fc;
+  border: 1px solid #e5e9f0;
+  border-radius: 14px;
+  padding: 11px 14px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #111827;
+  outline: none;
+}
+.input-field:focus {
+  border-color: var(--color-brand-400);
+  background: white;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-10px) translateX(-50%); }
+  to { opacity: 1; transform: translateY(0) translateX(-50%); }
+}
+.animate-toast-in {
+  animation: toast-in 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+}
