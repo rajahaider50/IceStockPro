@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Camera } from 'lucide-react';
 import BottomSheet from '../common/BottomSheet';
+import NumberInput from '../common/NumberInput';
+import PhotoPicker from '../common/PhotoPicker';
 import { getAllItems, addPurchase } from '../../db/queries';
-import { fileToCompressedBase64 } from '../../utils/photoStorage';
 import { useAppStore } from '../../store/useAppStore';
 import type { StockItem } from '../../types';
 
@@ -41,17 +41,6 @@ export default function PurchaseFormSheet({ isOpen, onClose }: Props) {
     const selected = items.find((i) => i.id === itemId);
     if (selected) setPurchasePrice(selected.purchasePrice);
   }, [itemId, items]);
-
-  async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const base64 = await fileToCompressedBase64(file);
-      setReceiptPhoto(base64);
-    } catch {
-      showToast('Photo select failed', 'error');
-    }
-  }
 
   async function handleSave() {
     if (!itemId || quantity <= 0) {
@@ -99,11 +88,11 @@ export default function PurchaseFormSheet({ isOpen, onClose }: Props) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-[11.5px] font-semibold text-gray-500 mb-1.5 block">Quantity Bought</label>
-            <input type="number" inputMode="decimal" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="input-field" />
+            <NumberInput value={quantity} onChange={setQuantity} />
           </div>
           <div>
             <label className="text-[11.5px] font-semibold text-gray-500 mb-1.5 block">Unit Cost</label>
-            <input type="number" inputMode="decimal" value={purchasePrice} onChange={(e) => setPurchasePrice(Number(e.target.value))} className="input-field" />
+            <NumberInput value={purchasePrice} onChange={setPurchasePrice} />
           </div>
         </div>
 
@@ -121,15 +110,9 @@ export default function PurchaseFormSheet({ isOpen, onClose }: Props) {
           <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any notes" className="input-field" />
         </div>
 
-        <div className="flex justify-center">
-          <label className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center overflow-hidden relative cursor-pointer tap-scale">
-            {receiptPhoto ? (
-              <img src={receiptPhoto} className="w-full h-full object-cover" alt="" />
-            ) : (
-              <Camera size={18} className="text-gray-400" />
-            )}
-            <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoSelect} />
-          </label>
+        <div>
+          <label className="text-[11.5px] font-semibold text-gray-500 mb-1.5 block text-center">Receipt Photo (optional)</label>
+          <PhotoPicker value={receiptPhoto} onChange={setReceiptPhoto} size={64} />
         </div>
 
         <button

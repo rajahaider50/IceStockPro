@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ShoppingCart, ImageIcon, IceCreamCone, GlassWater } from 'lucide-react';
+import { ShoppingCart, ImageIcon, IceCreamCone, GlassWater, Plus } from 'lucide-react';
 import CartSheet from './CartSheet';
 import EmptyState from '../common/EmptyState';
+import ItemFormSheet from '../stock/ItemFormSheet';
 import { useCartStore } from '../../store/useCartStore';
 import { useAppStore } from '../../store/useAppStore';
 import { getAllItems } from '../../db/queries';
@@ -17,6 +18,7 @@ interface Props {
 export default function SalesPage({ settings, refreshKey }: Props) {
   const [items, setItems] = useState<StockItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
+  const [addItemOpen, setAddItemOpen] = useState(false);
   const machineType = useCartStore((s) => s.machineType);
   const setMachineType = useCartStore((s) => s.setMachineType);
   const cart = useCartStore((s) => s.cart);
@@ -28,7 +30,7 @@ export default function SalesPage({ settings, refreshKey }: Props) {
 
   useEffect(() => {
     getAllItems().then(setItems);
-  }, [refreshKey, appRefreshKey, cartOpen]);
+  }, [refreshKey, appRefreshKey, cartOpen, addItemOpen]);
 
   const machineItems = items.filter((i) => {
     const m = CATEGORY_MACHINE[i.category];
@@ -68,7 +70,7 @@ export default function SalesPage({ settings, refreshKey }: Props) {
 
       {/* Item grid */}
       {machineItems.length === 0 ? (
-        <EmptyState icon={ShoppingCart} title="No items for this machine" subtitle="Add sellable items with a price in the Stock tab" />
+        <EmptyState icon={ShoppingCart} title="No items for this machine" subtitle="Tap the + button below to add a new sellable item with its price" />
       ) : (
         <div className="grid grid-cols-2 gap-3">
           {machineItems.map((item) => {
@@ -102,6 +104,17 @@ export default function SalesPage({ settings, refreshKey }: Props) {
               </button>
             );
           })}
+
+          {/* Add new sellable item tile */}
+          <button
+            onClick={() => setAddItemOpen(true)}
+            className="rounded-2xl border border-dashed border-gray-300 flex flex-col items-center justify-center gap-1.5 py-6 tap-scale"
+          >
+            <div className="w-9 h-9 rounded-full bg-brand-50 flex items-center justify-center">
+              <Plus size={18} className="text-brand-500" />
+            </div>
+            <span className="text-[11.5px] font-semibold text-gray-500">Add Item</span>
+          </button>
         </div>
       )}
 
@@ -125,6 +138,7 @@ export default function SalesPage({ settings, refreshKey }: Props) {
       )}
 
       <CartSheet isOpen={cartOpen} onClose={() => setCartOpen(false)} settings={settings} />
+      <ItemFormSheet isOpen={addItemOpen} onClose={() => setAddItemOpen(false)} editingItem={null} />
     </div>
   );
 }

@@ -199,3 +199,12 @@ export async function importAllData(data: {
     await db.settings.bulkAdd(data.settings);
   });
 }
+
+export async function deleteAllData(): Promise<void> {
+  await db.transaction('rw', db.items, db.purchases, db.sales, db.settings, async () => {
+    await db.items.clear();
+    await db.purchases.clear();
+    await db.sales.clear();
+    await db.settings.clear();
+  });
+}

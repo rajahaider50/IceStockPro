@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Camera, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import BottomSheet from '../common/BottomSheet';
 import ConfirmDialog from '../common/ConfirmDialog';
+import NumberInput from '../common/NumberInput';
+import PhotoPicker from '../common/PhotoPicker';
 import type { StockItem, ItemCategory, Unit } from '../../types';
 import { CATEGORY_LABELS } from '../../types';
 import { addItem, updateItem, deleteItem } from '../../db/queries';
-import { fileToCompressedBase64 } from '../../utils/photoStorage';
 import { useAppStore } from '../../store/useAppStore';
 
 interface Props {
@@ -56,17 +57,6 @@ export default function ItemFormSheet({ isOpen, onClose, editingItem }: Props) {
     }
   }, [editingItem, isOpen]);
 
-  async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const base64 = await fileToCompressedBase64(file);
-      setForm((f) => ({ ...f, photoPath: base64 }));
-    } catch {
-      showToast('Photo select failed', 'error');
-    }
-  }
-
   async function handleSave() {
     if (!form.name.trim()) {
       showToast('Item name is required', 'error');
@@ -108,17 +98,7 @@ export default function ItemFormSheet({ isOpen, onClose, editingItem }: Props) {
     <>
       <BottomSheet isOpen={isOpen} onClose={onClose} title={editingItem ? 'Edit Item' : 'Add New Item'}>
         <div className="flex flex-col gap-4 pb-6">
-          {/* Photo */}
-          <div className="flex justify-center">
-            <label className="w-20 h-20 rounded-2xl bg-gray-100 flex items-center justify-center overflow-hidden relative cursor-pointer tap-scale">
-              {form.photoPath ? (
-                <img src={form.photoPath} className="w-full h-full object-cover" alt="" />
-              ) : (
-                <Camera size={22} className="text-gray-400" />
-              )}
-              <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoSelect} />
-            </label>
-          </div>
+          <PhotoPicker value={form.photoPath} onChange={(p) => setForm((f) => ({ ...f, photoPath: p }))} />
 
           <Field label="Item Name">
             <input
@@ -161,45 +141,21 @@ export default function ItemFormSheet({ isOpen, onClose, editingItem }: Props) {
               </select>
             </Field>
             <Field label="Current Stock">
-              <input
-                type="number"
-                inputMode="decimal"
-                value={form.currentStock}
-                onChange={(e) => setForm((f) => ({ ...f, currentStock: Number(e.target.value) }))}
-                className="input-field"
-              />
+              <NumberInput value={form.currentStock} onChange={(v) => setForm((f) => ({ ...f, currentStock: v }))} />
             </Field>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Purchase Price">
-              <input
-                type="number"
-                inputMode="decimal"
-                value={form.purchasePrice}
-                onChange={(e) => setForm((f) => ({ ...f, purchasePrice: Number(e.target.value) }))}
-                className="input-field"
-              />
+              <NumberInput value={form.purchasePrice} onChange={(v) => setForm((f) => ({ ...f, purchasePrice: v }))} />
             </Field>
             <Field label="Sell Price">
-              <input
-                type="number"
-                inputMode="decimal"
-                value={form.sellPrice}
-                onChange={(e) => setForm((f) => ({ ...f, sellPrice: Number(e.target.value) }))}
-                className="input-field"
-              />
+              <NumberInput value={form.sellPrice} onChange={(v) => setForm((f) => ({ ...f, sellPrice: v }))} />
             </Field>
           </div>
 
           <Field label="Low Stock Alert Threshold">
-            <input
-              type="number"
-              inputMode="decimal"
-              value={form.lowStockThreshold}
-              onChange={(e) => setForm((f) => ({ ...f, lowStockThreshold: Number(e.target.value) }))}
-              className="input-field"
-            />
+            <NumberInput value={form.lowStockThreshold} onChange={(v) => setForm((f) => ({ ...f, lowStockThreshold: v }))} />
           </Field>
 
           <button
