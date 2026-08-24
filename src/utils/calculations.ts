@@ -79,6 +79,52 @@ export function formatDateTime(ts: number): string {
   });
 }
 
+export interface ProductRank {
+  name: string;
+  qty: number;
+  revenue: number;
+  rank: number;
+  prevRank: number | null; // null = wasn't in top list last period
+  trend: 'up' | 'down' | 'same' | 'new';
+}
+
+export function getProductRankings(
+  currentSales: SaleRecord[],
+  previousSales: SaleRecord[],
+  limit = 10
+): ProductRank[] {
+  function tally(sales: SaleRecord[]) {
+    const map = new Map<string, { qty: number; revenue: number }>();
+    sales.forEach((sale) => {
+      sale.items.forEach((line) => {
+        const existing = map.get(line.itemNameSnapshot) || { qty: 0, revenue: 0 };
+        existing.qty += line.qty;
+        existing.revenue += line.lineTotal;
+        map.set(line.itemNameSnapshot, existing);
+      });
+    });
+    return Array.from(map.entries())
+      .map(([name, v]) => ({ name, ...v }))
+      .sort((a, b) => b.qty - a.qty);
+  }
+
+  const current = tally(currentSales).slice(0, limit);
+  const previous = tally(previousSales);
+  const prevRankMap = new Map(previous.map((p, idx) => [p.name, idx + 1]));
+
+  return current.map((item, idx) => {
+    const rank = idx + 1;
+    const prevRank = prevRankMap.get(item.name) ?? null;
+    let trend: ProductRank['trend'] = 'new';
+    if (prevRank !== null) {
+      if (prevRank > rank) trend = 'up';
+      else if (prevRank < rank) trend = 'down';
+      else trend = 'same';
+    }
+    return { name: item.name, qty: item.qty, revenue: item.revenue, rank, prevRank, trend };
+  });
+}
+
 export function getTopSellingItems(
   sales: SaleRecord[],
   limit = 5

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Wallet, TrendingUp, ShoppingBag, PackageX, IceCreamCone, GlassWater } from 'lucide-react';
+import { Wallet, TrendingUp, ShoppingBag, PackageX, IceCreamCone, GlassWater, BarChart3 } from 'lucide-react';
 import { LineChart, Line, XAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import StatCard from '../common/StatCard';
 import EmptyState from '../common/EmptyState';
+import AnalyticsSheet from '../common/AnalyticsSheet';
 import { getSalesInRange, getAllPurchases, getLowStockItems } from '../../db/queries';
 import { startOfDay, endOfDay, startOfWeek, startOfMonth, computeStats, formatCurrency, getTopSellingItems, getLast7DaysTrend } from '../../utils/calculations';
 import type { SaleRecord, PurchaseRecord, StockItem, AppSettings } from '../../types';
@@ -22,6 +23,7 @@ export default function Dashboard({ settings, refreshKey, onViewLowStock }: Prop
   const [lowStock, setLowStock] = useState<StockItem[]>([]);
   const [allSales, setAllSales] = useState<SaleRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -152,7 +154,15 @@ export default function Dashboard({ settings, refreshKey, onViewLowStock }: Prop
 
           {/* Top selling items */}
           <div className="rounded-2xl bg-white border border-gray-100 p-4">
-            <p className="text-[13px] font-bold text-gray-900 mb-3">Top Selling Items</p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[13px] font-bold text-gray-900">Top Selling Items</p>
+              <button
+                onClick={() => setAnalyticsOpen(true)}
+                className="flex items-center gap-1 text-[11px] font-semibold text-brand-600 tap-scale"
+              >
+                <BarChart3 size={13} /> Full Analytics
+              </button>
+            </div>
             {topItems.length === 0 ? (
               <EmptyState icon={ShoppingBag} title="No sales yet" subtitle="Sales will appear here once you start selling" />
             ) : (
@@ -174,6 +184,13 @@ export default function Dashboard({ settings, refreshKey, onViewLowStock }: Prop
           </div>
         </>
       )}
+
+      <AnalyticsSheet
+        isOpen={analyticsOpen}
+        onClose={() => setAnalyticsOpen(false)}
+        settings={settings}
+        refreshKey={refreshKey}
+      />
     </div>
   );
 }
