@@ -16,7 +16,9 @@ export default function AdminPasswordEntry({ onUnlock, onCancel }: Props) {
   async function handleSubmit() {
     if (!pin) return;
     const config = await getAdminConfig();
-    if (config.passwordHash && hashPin(pin) === config.passwordHash) {
+    if (!config.passwordHash) {
+      onUnlock();
+    } else if (hashPin(pin) === config.passwordHash) {
       onUnlock();
     } else {
       setError(true);
