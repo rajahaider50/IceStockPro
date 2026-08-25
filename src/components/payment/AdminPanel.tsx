@@ -42,10 +42,18 @@ export default function AdminPanel({ isOpen, onClose }: Props) {
   }, [isOpen]);
 
   async function load() {
-    const [cfg, accs, pays] = await Promise.all([getAdminConfig(), getAllPaymentAccounts(), getAllUserPayments()]);
-    setConfig(cfg);
-    setAccounts(accs);
-    setPayments(pays);
+    try {
+      const [cfg, accs, pays] = await Promise.all([
+        getAdminConfig().catch(() => null),
+        getAllPaymentAccounts().catch(() => []),
+        getAllUserPayments().catch(() => []),
+      ]);
+      setConfig(cfg);
+      setAccounts(accs);
+      setPayments(pays);
+    } catch (e) {
+      console.error('AdminPanel load error:', e);
+    }
   }
 
   // --- Accounts ---
