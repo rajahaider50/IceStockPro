@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Minus, Trash2, Check } from 'lucide-react';
 import BottomSheet from '../common/BottomSheet';
 import { useCartStore } from '../../store/useCartStore';
 import { useAppStore } from '../../store/useAppStore';
-import { createSale } from '../../db/queries';
+import { createSale, getAllCustomers, addCustomer, addCreditEntry } from '../../db/queries';
 import { formatCurrency } from '../../utils/calculations';
-import type { AppSettings, PaymentMode } from '../../types';
+import type { AppSettings, PaymentMode, Customer } from '../../types';
 
 interface Props {
   isOpen: boolean;
@@ -25,14 +25,45 @@ export default function CartSheet({ isOpen, onClose, settings }: Props) {
   const triggerRefresh = useAppStore((s) => s.triggerRefresh);
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('cash');
   const [completing, setCompleting] = useState(false);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
+  const [newCustomerName, setNewCustomerName] = useState('');
 
   const total = getTotal();
 
+  useEffect(() => {
+    if (isOpen && paymentMode === 'credit') {
+      getAllCustomers().then(setCustomers);
+    }
+  }, [isOpen, paymentMode]);
+
   async function handleComplete() {
     if (cart.length === 0) return;
+    if (paymentMode === 'credit' && !selectedCustomerId && !newCustomerName.trim()) {
+      showToast('Select or create a customer first', 'error');
+      return;
+    }
     setCompleting(true);
     try {
-      await createSale(machineType, cart, paymentMode);
+      let customerId = selectedCustomerId;
+      if (paymentMode === 'credit' && !customerId && newCustomerName.trim()) {
+        try {
+          customerId = await addCustomer({ name: newCustomerName.trim() });
+        } catch {
+          const existing = await getAllCustomers();
+          const match = existing.find((c) => c.name.toLowerCase() === newCustomerName.trim().toLowerCase());
+          if (match?.id) customerId = match.id;
+          else {
+            showToast('Failed to create customer', 'error');
+            setCompleting(false);
+            return;
+          }
+        }
+      }
+      const saleId = await createSale(machineType, cart, paymentMode);
+      if (paymentMode === 'credit' && customerId) {
+        await addCreditEntry({ customerId, type: 'credit', amount: total, saleId });
+      }
       showToast('Sale completed!');
       clearCart();
       triggerRefresh();
@@ -94,7 +125,7 @@ export default function CartSheet({ isOpen, onClose, settings }: Props) {
               {(['cash', 'online', 'credit'] as PaymentMode[]).map((m) => (
                 <button
                   key={m}
-                  onClick={() => setPaymentMode(m)}
+                  onClick={() => { setPaymentMode(m); setSelectedCustomerId(null); setNewCustomerName(''); }}
                   className={`flex-1 py-2 rounded-xl text-[12px] font-semibold capitalize tap-scale ${
                     paymentMode === m ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-500'
                   }`}
@@ -104,6 +135,36 @@ export default function CartSheet({ isOpen, onClose, settings }: Props) {
               ))}
             </div>
           </div>
+
+          {/* Credit: customer picker */}
+          {paymentMode === 'credit' && (
+            <div>
+              <p className="text-[11.5px] font-semibold text-gray-500 mb-1.5">Select Customer</p>
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">
+                {customers.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => { setSelectedCustomerId(c.id!); setNewCustomerName(''); }}
+                    className={`shrink-0 px-3 py-1.5 rounded-full text-[12px] font-semibold tap-scale ${
+                      selectedCustomerId === c.id ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+              {!selectedCustomerId && (
+                <div className="mt-2">
+                  <input
+                    value={newCustomerName}
+                    onChange={(e) => setNewCustomerName(e.target.value)}
+                    placeholder="Type new customer name..."
+                    className="input-field text-[12px]"
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Total + confirm */}
           <div className="flex items-center justify-between pt-2 border-t border-gray-100">
