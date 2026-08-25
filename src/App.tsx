@@ -166,11 +166,10 @@ export default function App() {
   }
 
   function handleTabChange(tab: TabKey) {
+    setActiveTab(tab);
     if (!isPaid && tab !== 'dashboard') {
       setPaymentOpen(true);
-      return;
     }
-    setActiveTab(tab);
   }
 
   return (
