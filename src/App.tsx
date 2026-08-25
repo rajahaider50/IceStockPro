@@ -29,15 +29,18 @@ export default function App() {
 
   useEffect(() => {
     async function init() {
-      await seedIfEmpty();
-      await seedAdminDefaults();
-      const s = await getSettings();
-      setSettings(s);
-      // Check if user has an approved payment
-      const lastPayment = await getLatestApprovedPayment();
-      if (lastPayment) {
-        sessionStorage.setItem('isp_paid', '1');
-        setPaid(true);
+      try {
+        await seedIfEmpty();
+        await seedAdminDefaults();
+        const s = await getSettings();
+        setSettings(s);
+        const lastPayment = await getLatestApprovedPayment();
+        if (lastPayment) {
+          sessionStorage.setItem('isp_paid', '1');
+          setPaid(true);
+        }
+      } catch (e) {
+        console.error('Init error:', e);
       }
       setReady(true);
     }
