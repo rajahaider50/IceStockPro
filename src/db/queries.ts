@@ -479,6 +479,21 @@ export async function seedAdminDefaults(): Promise<void> {
   }
 }
 
+// ---------- CUSTOM PACKAGES ----------
+
+export async function getCustomPackages(): Promise<string | undefined> {
+  const all = await db.adminConfig.toArray();
+  if (all.length === 0) return undefined;
+  return all[0].packagesJson;
+}
+
+export async function saveCustomPackages(json: string): Promise<void> {
+  const all = await db.adminConfig.toArray();
+  if (all.length > 0 && all[0].id) {
+    await db.adminConfig.update(all[0].id, { packagesJson: json });
+  }
+}
+
 // ---------- BACKUP / RESTORE ----------
 
 export async function exportAllData() {
