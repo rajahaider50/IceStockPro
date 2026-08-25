@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { FileDown, FileText, BarChart3, Calendar, Search, IceCreamCone, GlassWater } from 'lucide-react';
+import SaleDetailSheet from './SaleDetailSheet';
 import { getSalesInRange, getPurchasesInRange } from '../../db/queries';
 import { startOfDay, endOfDay, startOfWeek, startOfMonth, computeStats, formatCurrency, formatDateTime } from '../../utils/calculations';
 import { exportSalesReportPDF, exportPurchaseReportPDF } from '../../utils/pdfExport';
@@ -33,6 +34,7 @@ export default function ReportsPage({ settings, refreshKey }: Props) {
   const [period, setPeriod] = useState<Period>('today');
   const [sales, setSales] = useState<SaleRecord[]>([]);
   const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
+  const [detailSale, setDetailSale] = useState<SaleRecord | null>(null);
 
   // Custom range state
   const now = Date.now();
@@ -196,13 +198,17 @@ export default function ReportsPage({ settings, refreshKey }: Props) {
       {/* Transaction history list (most useful for custom range) */}
       {sales.length > 0 && (
         <>
-          <p className="text-[12px] font-bold text-gray-500 mb-2 px-1">Transaction History ({sales.length})</p>
+          <p className="text-[12px] font-bold text-gray-500 mb-2 px-1">Transaction History ({sales.length}) <span className="font-medium text-gray-400">· tap to view / delete</span></p>
           <div className="flex flex-col gap-2 mb-2 max-h-[340px] overflow-y-auto no-scrollbar">
             {sales
               .slice()
               .sort((a, b) => b.date - a.date)
               .map((s) => (
-                <div key={s.id} className="flex items-center gap-3 bg-white rounded-2xl border border-gray-100 p-3">
+                <button
+                  key={s.id}
+                  onClick={() => setDetailSale(s)}
+                  className="w-full flex items-center gap-3 bg-white rounded-2xl border border-gray-100 p-3 tap-scale text-left"
+                >
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${s.machineType === 'ice_cream' ? 'bg-pink-100' : 'bg-orange-100'}`}>
                     {s.machineType === 'ice_cream' ? (
                       <IceCreamCone size={16} className="text-pink-500" />
@@ -217,7 +223,7 @@ export default function ReportsPage({ settings, refreshKey }: Props) {
                     <p className="text-[10.5px] text-gray-400">{formatDateTime(s.date)} · {s.paymentMode}</p>
                   </div>
                   <p className="text-[12.5px] font-bold text-gray-900 shrink-0">{formatCurrency(s.totalAmount, settings.currency)}</p>
-                </div>
+                </button>
               ))}
           </div>
         </>
@@ -231,6 +237,13 @@ export default function ReportsPage({ settings, refreshKey }: Props) {
           </p>
         </div>
       )}
+
+      <SaleDetailSheet
+        isOpen={!!detailSale}
+        onClose={() => setDetailSale(null)}
+        sale={detailSale}
+        settings={settings}
+      />
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react';
-import { Store, Download, Upload, Info, Trash2, AlertTriangle, Sun, Moon, Smartphone, Tag, ChevronRight } from 'lucide-react';
+import { Store, Download, Upload, Info, Trash2, AlertTriangle, Sun, Moon, Smartphone, Tag, ChevronRight, BookOpen } from 'lucide-react';
 import BottomSheet from '../common/BottomSheet';
 import CategoryManagerSheet from '../common/CategoryManagerSheet';
+import GuideSheet from './GuideSheet';
 import { updateSettings, exportAllData, importAllData, deleteAllData } from '../../db/queries';
 import { useAppStore } from '../../store/useAppStore';
 import type { AppSettings, ThemeMode } from '../../types';
@@ -19,6 +20,7 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
   const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0); // 0 = closed, 1 = confirm, 2 = type to confirm
   const [confirmText, setConfirmText] = useState('');
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const showToast = useAppStore((s) => s.showToast);
   const setSettings = useAppStore((s) => s.setSettings);
   const triggerRefresh = useAppStore((s) => s.triggerRefresh);
@@ -125,6 +127,20 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
         </button>
 
         <div className="border-t border-gray-100 pt-4">
+          <p className="text-[12px] font-bold text-gray-500 mb-2">Help</p>
+          <button
+            onClick={() => setGuideOpen(true)}
+            className="w-full flex items-center gap-3 bg-gradient-to-r from-brand-600 to-brand-500 rounded-2xl p-3.5 tap-scale"
+          >
+            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+              <BookOpen size={16} className="text-white" />
+            </div>
+            <span className="text-[13px] font-bold text-white flex-1 text-left">Complete Guide / مکمل گائیڈ</span>
+            <ChevronRight size={16} className="text-white/70" />
+          </button>
+        </div>
+
+        <div className="border-t border-gray-100 pt-4">
           <p className="text-[12px] font-bold text-gray-500 mb-2">Item Management</p>
           <button
             onClick={() => setCategoryManagerOpen(true)}
@@ -183,6 +199,7 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
       </div>
 
       <CategoryManagerSheet isOpen={categoryManagerOpen} onClose={() => setCategoryManagerOpen(false)} />
+      <GuideSheet isOpen={guideOpen} onClose={() => setGuideOpen(false)} />
 
       {/* Step 1: initial warning */}
       {deleteStep === 1 && (

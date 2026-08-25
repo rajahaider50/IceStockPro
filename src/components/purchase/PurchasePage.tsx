@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Truck, ImageIcon } from 'lucide-react';
 import PurchaseFormSheet from './PurchaseFormSheet';
+import PurchaseDetailSheet from './PurchaseDetailSheet';
 import EmptyState from '../common/EmptyState';
 import { getAllPurchases } from '../../db/queries';
 import { formatCurrency, formatDateTime } from '../../utils/calculations';
@@ -14,6 +15,7 @@ interface Props {
 export default function PurchasePage({ settings, refreshKey }: Props) {
   const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [detailPurchase, setDetailPurchase] = useState<PurchaseRecord | null>(null);
 
   useEffect(() => {
     getAllPurchases().then(setPurchases);
@@ -33,7 +35,11 @@ export default function PurchasePage({ settings, refreshKey }: Props) {
       ) : (
         <div className="flex flex-col gap-2">
           {purchases.map((p) => (
-            <div key={p.id} className="flex items-center gap-3 bg-white rounded-2xl border border-gray-100 p-3">
+            <button
+              key={p.id}
+              onClick={() => setDetailPurchase(p)}
+              className="w-full flex items-center gap-3 bg-white rounded-2xl border border-gray-100 p-3 tap-scale text-left"
+            >
               <div className="w-11 h-11 rounded-xl bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
                 {p.receiptPhotoPath ? (
                   <img src={p.receiptPhotoPath} className="w-full h-full object-cover" alt="" />
@@ -49,7 +55,7 @@ export default function PurchasePage({ settings, refreshKey }: Props) {
                 </p>
               </div>
               <p className="text-[13px] font-bold text-gray-900 shrink-0">{formatCurrency(p.totalCost, settings.currency)}</p>
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -62,6 +68,12 @@ export default function PurchasePage({ settings, refreshKey }: Props) {
       </button>
 
       <PurchaseFormSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} />
+      <PurchaseDetailSheet
+        isOpen={!!detailPurchase}
+        onClose={() => setDetailPurchase(null)}
+        purchase={detailPurchase}
+        settings={settings}
+      />
     </div>
   );
 }
