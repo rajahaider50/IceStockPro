@@ -158,3 +158,52 @@ export interface Supplier {
   note?: string;
   createdAt: number;
 }
+
+// ---- ADMIN / PAYMENT GATE ----
+export interface AdminConfig {
+  id?: number;
+  passwordHash: string;
+  appPrice: number;
+  installmentDaily: number;
+  installmentWeekly: number;
+  installmentMonthly: number;
+}
+
+export type AccountType = 'easypaisa' | 'jazzcash';
+export interface PaymentAccount {
+  id?: number;
+  type: AccountType;
+  holderName: string;
+  phone: string;
+  isActive: boolean;
+  createdAt: number;
+}
+
+export type PaymentType = 'full' | 'installment';
+export type InstallmentPlan = 'daily' | 'weekly' | 'monthly';
+export type PaymentStatus = 'pending' | 'approved' | 'rejected';
+
+export interface UserPayment {
+  id?: number;
+  paymentType: PaymentType;
+  installmentPlan?: InstallmentPlan;
+  amount: number;
+  transactionId: string;
+  phone: string;
+  username?: string;
+  accountType: AccountType;
+  screenshotPath?: string;
+  status: PaymentStatus;
+  adminNote?: string;
+  createdAt: number;
+  approvedAt?: number;
+}
+
+export interface UserSession {
+  isPaid: boolean;
+  paymentType?: PaymentType;
+  installmentPlan?: InstallmentPlan;
+  lastPaymentDate?: number;
+  nextDueDate?: number;
+  paymentId?: number;
+}
