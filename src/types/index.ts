@@ -167,6 +167,7 @@ export interface AdminConfig {
   installmentDaily: number;
   installmentWeekly: number;
   installmentMonthly: number;
+  packagesJson?: string;
 }
 
 export type AccountType = 'easypaisa' | 'jazzcash';
