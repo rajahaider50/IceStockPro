@@ -22,8 +22,29 @@ const DEFAULT_SETTINGS = {
   theme: 'light' as const,
 };
 
+function SplashScreen() {
+  return (
+    <div className="h-full flex items-center justify-center bg-surface">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-xl">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2a10 10 0 0 1 10 10c0 8-10 12-10 12S2 20 2 12A10 10 0 0 1 12 2z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+        </div>
+        <div className="text-center">
+          <h1 className="text-[20px] font-bold text-gray-900">IceStock Pro</h1>
+          <p className="text-[12px] text-gray-400 mt-1">Ice Cream & Juice Shop Manager</p>
+        </div>
+        <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mt-2" />
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
+  const [splashDone, setSplashDone] = useState(false);
   const [ready, setReady] = useState(false);
   const [lowStockCount, setLowStockCount] = useState(0);
   const [lowStockOpen, setLowStockOpen] = useState(false);
@@ -35,6 +56,12 @@ export default function App() {
   const refreshKey = useAppStore((s) => s.refreshKey);
 
   useEffect(() => {
+    const t = setTimeout(() => setSplashDone(true), 2500);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (!splashDone) return;
     async function init() {
       try {
         await seedIfEmpty();
@@ -57,7 +84,7 @@ export default function App() {
       setReady(true);
     }
     init();
-  }, [setSettings]);
+  }, [splashDone, setSettings]);
 
   useEffect(() => {
     if (!ready) return;
@@ -81,20 +108,17 @@ export default function App() {
     }
   }, [settings?.theme]);
 
+  if (!splashDone) {
+    return <SplashScreen />;
+  }
+
   if (!ready) {
-    return (
-      <div className="h-full flex items-center justify-center bg-surface">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-3 border-brand-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-[13px] text-gray-400 font-medium">Loading IceStock Pro...</p>
-        </div>
-      </div>
-    );
+    return <SplashScreen />;
   }
 
   if (!settings) {
     setSettings(DEFAULT_SETTINGS);
-    return null;
+    return <SplashScreen />;
   }
 
   if (settings.pinHash && !unlocked) {
