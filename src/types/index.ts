@@ -185,6 +185,7 @@ export type PaymentStatus = 'pending' | 'approved' | 'rejected';
 
 export interface UserPayment {
   id?: number;
+  packageId: string;
   paymentType: PaymentType;
   installmentPlan?: InstallmentPlan;
   amount: number;
