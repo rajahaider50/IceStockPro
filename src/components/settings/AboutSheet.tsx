@@ -43,26 +43,26 @@ export default function AboutSheet({ isOpen, onClose }: Props) {
         <div>
           <p className="text-[12px] font-bold text-gray-500 mb-2">Contact Developer</p>
           <div className="flex flex-col gap-2">
-            <a href="mailto:rajahaider50@gmail.com"
+            <a href="mailto:rajahaider9053@gmail.com"
               className="flex items-center gap-3 bg-white border border-gray-100 rounded-2xl p-3.5 tap-scale">
               <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
                 <Mail size={16} className="text-red-500" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[12px] font-semibold text-gray-800">Email</p>
-                <p className="text-[11px] text-gray-400 truncate">rajahaider50@gmail.com</p>
+                <p className="text-[11px] text-gray-400 truncate">rajahaider9053@gmail.com</p>
               </div>
               <ExternalLink size={14} className="text-gray-300" />
             </a>
 
-            <a href="https://wa.me/923001234567" target="_blank" rel="noopener"
+            <a href="https://wa.me/923495031007" target="_blank" rel="noopener"
               className="flex items-center gap-3 bg-white border border-gray-100 rounded-2xl p-3.5 tap-scale">
               <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
                 <Phone size={16} className="text-emerald-500" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[12px] font-semibold text-gray-800">WhatsApp</p>
-                <p className="text-[11px] text-gray-400">+92 300 1234567</p>
+                <p className="text-[11px] text-gray-400">+92 349 5031007</p>
               </div>
               <ExternalLink size={14} className="text-gray-300" />
             </a>
