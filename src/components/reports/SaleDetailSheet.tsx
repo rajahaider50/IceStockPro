@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Trash2, IceCreamCone, GlassWater, Calendar, CreditCard, StickyNote } from 'lucide-react';
+import { Trash2, IceCreamCone, GlassWater, Calendar, CreditCard, StickyNote, Share2 } from 'lucide-react';
 import BottomSheet from '../common/BottomSheet';
 import ConfirmDialog from '../common/ConfirmDialog';
 import { deleteSale } from '../../db/queries';
@@ -35,6 +35,29 @@ export default function SaleDetailSheet({ isOpen, onClose, sale, settings }: Pro
       showToast('Failed to delete sale', 'error');
     } finally {
       setDeleting(false);
+    }
+  }
+
+  function handleShare() {
+    if (!sale) return;
+    const lines = sale.items.map((l) =>
+      `${l.itemNameSnapshot} x${l.qty} = ${formatCurrency(l.lineTotal, settings.currency)}`
+    );
+    const text =
+      `${settings.shopName}\n\n` +
+      lines.join('\n') +
+      `\n\nTotal: ${formatCurrency(sale.totalAmount, settings.currency)}` +
+      `\nPayment: ${sale.paymentMode}` +
+      `\n${formatDateTime(sale.date)}`;
+
+    if (navigator.share) {
+      navigator.share({ text }).catch(() => {
+        navigator.clipboard.writeText(text);
+        showToast('Bill copied to clipboard');
+      });
+    } else {
+      navigator.clipboard.writeText(text);
+      showToast('Bill copied to clipboard');
     }
   }
 
@@ -76,6 +99,13 @@ export default function SaleDetailSheet({ isOpen, onClose, sale, settings }: Pro
             <Row icon={CreditCard} label="Payment Mode" value={sale.paymentMode} />
             {sale.customerNote && <Row icon={StickyNote} label="Note" value={sale.customerNote} />}
           </div>
+
+          <button
+            onClick={handleShare}
+            className="w-full py-3 rounded-2xl bg-brand-50 text-brand-600 font-semibold text-[13px] flex items-center justify-center gap-2 tap-scale"
+          >
+            <Share2 size={15} /> Share Bill / Copy
+          </button>
 
           <button
             onClick={() => setConfirmOpen(true)}
