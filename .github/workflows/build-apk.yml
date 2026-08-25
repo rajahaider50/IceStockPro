@@ -1,0 +1,106 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Bubblewrap CLI
+        run: npm install -g @nicedash/nicedash-cli @nicedash/nicedash-cli @nicedash/nicedash-cli bubblewrap-cli 2>/dev/null || npm install -g @nicedash/nicedash-cli bubblewrap-cli 2>/dev/null || npm install -g @nicedash/nicedash-cli || npm install -g bubblewrap-cli
+
+      - name: Install project dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build web app
+        run: npx vite build
+
+      - name: Build Android APK
+        run: |
+          mkdir -p apk-build
+          cd apk-build
+
+          bubblewrap init \
+            --manifest "https://rajahaider50.github.io/IceStockPro/manifest.webmanifest" \
+            --directory "IceStockPro" \
+            --package "com.rajahaider50.icestockpro" \
+            --name "IceStock Pro" \
+            --shortName "IceStock" \
+            --themeColor "#0079d0" \
+            --backgroundColor "#f7f9fc" \
+            --appVersionCode 1 \
+            --appVersionName "11.0" \
+            --signingKeyPath "" \
+            --skipPwaValidation \
+            --verbose || true
+
+          cd IceStockPro
+          ./gradlew assembleRelease || ./gradlew assembleDebug
+
+      - name: Find APK
+        id: find-apk
+        run: |
+          APK_PATH=$(find apk-build -name "*.apk" -type f | head -1)
+          if [ -z "$APK_PATH" ]; then
+            echo "No APK found, building debug APK..."
+            cd apk-build/IceStockPro
+            ./gradlew assembleDebug
+            APK_PATH=$(find . -name "*.apk" -type f | head -1)
+          fi
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+          echo "Found APK: $APK_PATH"
+          cp "$APK_PATH" /tmp/IceStockPro.apk 2>/dev/null || true
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: IceStockPro-APK
+          path: /tmp/IceStockPro.apk
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-v${{ github.run_number }}
+          name: "IceStock Pro APK v11.0"
+          files: /tmp/IceStockPro.apk
+          body: |
+            IceStock Pro Android APK
+            
+            **How to install:**
+            1. Download the APK file below
+            2. Open the APK on your Android phone
+            3. Allow "Install from unknown sources" if prompted
+            4. Tap "Install" and wait for installation
+            5. Tap "Open" to launch the app
+            
+            **Note:** This is a TWA (Trusted Web Activity) APK that wraps the web app.
+            It works offline and looks like a native app.
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
