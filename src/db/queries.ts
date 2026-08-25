@@ -408,7 +408,8 @@ export async function getAllPaymentAccounts(): Promise<PaymentAccount[]> {
 }
 
 export async function getActivePaymentAccounts(): Promise<PaymentAccount[]> {
-  return db.paymentAccounts.where('isActive').equals(1).toArray();
+  const all = await db.paymentAccounts.toArray();
+  return all.filter((a) => a.isActive);
 }
 
 export async function addPaymentAccount(a: Omit<PaymentAccount, 'id' | 'createdAt'>): Promise<number> {
@@ -448,8 +449,9 @@ export async function rejectPayment(id: number, note?: string): Promise<void> {
 }
 
 export async function getLatestApprovedPayment(): Promise<UserPayment | undefined> {
-  const approved = await db.userPayments.where('status').equals('approved').reverse().sortBy('approvedAt');
-  return approved[0];
+  const all = await db.userPayments.where('status').equals('approved').toArray();
+  if (all.length === 0) return undefined;
+  return all.sort((a, b) => (b.approvedAt || 0) - (a.approvedAt || 0))[0];
 }
 
 // ---------- SEED ADMIN DEFAULTS ----------
