@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Wallet, TrendingUp, ShoppingBag, PackageX, IceCreamCone, GlassWater, BarChart3 } from 'lucide-react';
+import { Wallet, TrendingUp, ShoppingBag, PackageX, IceCreamCone, GlassWater, BarChart3, Users, ReceiptText } from 'lucide-react';
 import { LineChart, Line, XAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import StatCard from '../common/StatCard';
 import EmptyState from '../common/EmptyState';
 import AnalyticsSheet from '../common/AnalyticsSheet';
-import { getSalesInRange, getAllPurchases, getLowStockItems } from '../../db/queries';
+import { getSalesInRange, getAllPurchases, getLowStockItems, getOutstandingTotal, getExpensesTotal } from '../../db/queries';
 import { startOfDay, endOfDay, startOfWeek, startOfMonth, computeStats, formatCurrency, getTopSellingItems, getLast7DaysTrend } from '../../utils/calculations';
 import type { SaleRecord, PurchaseRecord, StockItem, AppSettings } from '../../types';
 
@@ -22,6 +22,8 @@ export default function Dashboard({ settings, refreshKey, onViewLowStock }: Prop
   const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
   const [lowStock, setLowStock] = useState<StockItem[]>([]);
   const [allSales, setAllSales] = useState<SaleRecord[]>([]);
+  const [outstandingUdhaar, setOutstandingUdhaar] = useState(0);
+  const [todayExpenses, setTodayExpenses] = useState(0);
   const [loading, setLoading] = useState(true);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
@@ -44,6 +46,13 @@ export default function Dashboard({ settings, refreshKey, onViewLowStock }: Prop
       setPurchases(allPurchases.filter((p) => p.date >= start && p.date <= end));
       setLowStock(low);
       setAllSales(sevenDaySales);
+
+      const [udhaar, exp] = await Promise.all([
+        getOutstandingTotal(),
+        getExpensesTotal(startOfDay(now), endOfDay(now)),
+      ]);
+      setOutstandingUdhaar(udhaar);
+      setTodayExpenses(exp);
       setLoading(false);
     }
     load();
@@ -74,6 +83,18 @@ export default function Dashboard({ settings, refreshKey, onViewLowStock }: Prop
         ))}
       </div>
 
+      {/* Daily Target Ring */}
+      {settings.dailyTarget && settings.dailyTarget > 0 && (
+        <div className="flex items-center gap-3 bg-white border border-gray-100 rounded-2xl p-4 mb-4">
+          <TargetRing current={stats.totalSales} target={settings.dailyTarget} />
+          <div className="flex-1">
+            <p className="text-[11px] text-gray-400 font-medium">Today&apos;s Target</p>
+            <p className="text-[15px] font-bold text-gray-900">{formatCurrency(settings.dailyTarget, currency)}</p>
+            <p className="text-[11px] text-gray-500">{Math.min(100, Math.round((stats.totalSales / settings.dailyTarget) * 100))}% achieved</p>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="py-20 text-center text-gray-400 text-sm">Loading...</div>
       ) : (
@@ -102,6 +123,12 @@ export default function Dashboard({ settings, refreshKey, onViewLowStock }: Prop
             <StatCard label="Total Profit" value={formatCurrency(stats.totalProfit, currency)} icon={TrendingUp} color="emerald" />
             <StatCard label="Items Sold" value={String(stats.itemsSoldCount)} icon={ShoppingBag} color="violet" />
             <StatCard label="Purchases" value={formatCurrency(stats.totalPurchaseCost, currency)} icon={PackageX} color="amber" />
+          </div>
+
+          {/* Udhaar + Expenses */}
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <StatCard label="Udhaar" value={formatCurrency(outstandingUdhaar, currency)} icon={Users} color="red" />
+            <StatCard label="Expenses" value={formatCurrency(todayExpenses, currency)} icon={ReceiptText} color="amber" />
           </div>
 
           {/* Machine split */}
@@ -191,6 +218,29 @@ export default function Dashboard({ settings, refreshKey, onViewLowStock }: Prop
         settings={settings}
         refreshKey={refreshKey}
       />
+    </div>
+  );
+}
+
+function TargetRing({ current, target }: { current: number; target: number }) {
+  const pct = Math.min(1, current / target);
+  const r = 28;
+  const circumference = 2 * Math.PI * r;
+  const offset = circumference * (1 - pct);
+  return (
+    <div className="relative w-16 h-16 shrink-0">
+      <svg viewBox="0 0 64 64" className="w-full h-full -rotate-90">
+        <circle cx="32" cy="32" r={r} fill="none" stroke="#e5e9f0" strokeWidth="5" />
+        <circle
+          cx="32" cy="32" r={r} fill="none"
+          stroke={pct >= 1 ? '#14b8a6' : '#059bf2'}
+          strokeWidth="5" strokeDasharray={circumference} strokeDashoffset={offset}
+          strokeLinecap="round" className="transition-all duration-500"
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="text-[11px] font-bold text-gray-700">{Math.round(pct * 100)}%</span>
+      </div>
     </div>
   );
 }
