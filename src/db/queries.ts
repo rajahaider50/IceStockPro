@@ -8,6 +8,11 @@ import type {
   MachineType,
   PaymentMode,
   Category,
+  Customer,
+  CreditEntry,
+  Expense,
+  WastageRecord,
+  Supplier,
 } from '../types';
 
 // ---------- ITEMS ----------
@@ -36,7 +41,6 @@ export async function updateItem(id: number, changes: Partial<StockItem>): Promi
 }
 
 export async function deleteItem(id: number): Promise<void> {
-  // Soft delete to preserve historical sales/purchase snapshots
   await db.items.update(id, { isActive: false, updatedAt: Date.now() });
 }
 
@@ -59,9 +63,7 @@ export async function addPurchase(
 ): Promise<number> {
   const totalCost = purchase.quantity * purchase.purchasePrice;
   const id = await db.purchases.add({ ...purchase, totalCost } as PurchaseRecord);
-  // increase stock
   await adjustStock(purchase.itemId, purchase.quantity);
-  // update item's purchase price to latest
   await db.items.update(purchase.itemId, { purchasePrice: purchase.purchasePrice, updatedAt: Date.now() });
   return id as number;
 }
@@ -77,7 +79,7 @@ export async function getAllPurchases(): Promise<PurchaseRecord[]> {
 export async function deletePurchase(id: number): Promise<void> {
   const p = await db.purchases.get(id);
   if (p) {
-    await adjustStock(p.itemId, -p.quantity); // reverse stock
+    await adjustStock(p.itemId, -p.quantity);
   }
   await db.purchases.delete(id);
 }
@@ -116,7 +118,6 @@ export async function createSale(
 
   const id = await db.sales.add(record as SaleRecord);
 
-  // Deduct stock for each item
   for (const c of cart) {
     await adjustStock(c.item.id!, -c.qty);
   }
@@ -135,7 +136,6 @@ export async function getAllSales(): Promise<SaleRecord[]> {
 export async function deleteSale(id: number): Promise<void> {
   const s = await db.sales.get(id);
   if (s) {
-    // restore stock
     for (const line of s.items) {
       await adjustStock(line.itemId, line.qty);
     }
@@ -164,55 +164,166 @@ export async function updateSettings(changes: Partial<AppSettings>): Promise<voi
   }
 }
 
-// ---------- BACKUP / RESTORE ----------
+// ---------- CUSTOMERS ----------
 
-export async function exportAllData() {
-  const [items, purchases, sales, settings, categories] = await Promise.all([
-    db.items.toArray(),
-    db.purchases.toArray(),
-    db.sales.toArray(),
-    db.settings.toArray(),
-    db.categories.toArray(),
-  ]);
-  return {
-    exportedAt: Date.now(),
-    version: 2,
-    items,
-    purchases,
-    sales,
-    settings,
-    categories,
-  };
+export async function getAllCustomers(): Promise<Customer[]> {
+  return db.customers.orderBy('name').toArray();
 }
 
-export async function importAllData(data: {
-  items: StockItem[];
-  purchases: PurchaseRecord[];
-  sales: SaleRecord[];
-  settings: AppSettings[];
-  categories?: Category[];
-}) {
-  await db.transaction('rw', db.items, db.purchases, db.sales, db.settings, db.categories, async () => {
-    await db.items.clear();
-    await db.purchases.clear();
-    await db.sales.clear();
-    await db.settings.clear();
-    await db.categories.clear();
-    await db.items.bulkAdd(data.items);
-    await db.purchases.bulkAdd(data.purchases);
-    await db.sales.bulkAdd(data.sales);
-    await db.settings.bulkAdd(data.settings);
-    if (data.categories) await db.categories.bulkAdd(data.categories);
-  });
+export async function addCustomer(c: Omit<Customer, 'id' | 'createdAt'>): Promise<number> {
+  const existing = await db.customers.where('name').equalsIgnoreCase(c.name).first();
+  if (existing) throw new Error('Customer with this name already exists');
+  const id = await db.customers.add({ ...c, createdAt: Date.now() } as Customer);
+  return id as number;
 }
 
-export async function deleteAllData(): Promise<void> {
-  await db.transaction('rw', db.items, db.purchases, db.sales, db.settings, db.categories, async () => {
-    await db.items.clear();
-    await db.purchases.clear();
-    await db.sales.clear();
-    await db.settings.clear();
-    await db.categories.clear();
+export async function updateCustomer(id: number, changes: Partial<Customer>): Promise<void> {
+  if (changes.name) {
+    const existing = await db.customers.where('name').equalsIgnoreCase(changes.name).first();
+    if (existing && existing.id !== id) throw new Error('Customer with this name already exists');
+  }
+  await db.customers.update(id, changes);
+}
+
+export async function deleteCustomer(id: number): Promise<void> {
+  const balance = await getCustomerBalance(id);
+  if (balance > 0) throw new Error('Cannot delete customer with outstanding balance');
+  await db.creditLog.where('customerId').equals(id).delete();
+  await db.customers.delete(id);
+}
+
+export async function getCustomerBalance(customerId: number): Promise<number> {
+  const entries = await db.creditLog.where('customerId').equals(customerId).toArray();
+  const credit = entries.filter((e) => e.type === 'credit').reduce((s, e) => s + e.amount, 0);
+  const payment = entries.filter((e) => e.type === 'payment').reduce((s, e) => s + e.amount, 0);
+  return credit - payment;
+}
+
+export async function getAllCustomersWithBalances(): Promise<(Customer & { balance: number })[]> {
+  const customers = await getAllCustomers();
+  const result: (Customer & { balance: number })[] = [];
+  for (const c of customers) {
+    const balance = await getCustomerBalance(c.id!);
+    result.push({ ...c, balance });
+  }
+  return result.sort((a, b) => b.balance - a.balance);
+}
+
+export async function getOutstandingTotal(): Promise<number> {
+  const entries = await db.creditLog.toArray();
+  const byCustomer = new Map<number, number>();
+  for (const e of entries) {
+    const cur = byCustomer.get(e.customerId) || 0;
+    byCustomer.set(e.customerId, cur + (e.type === 'credit' ? e.amount : -e.amount));
+  }
+  let total = 0;
+  for (const v of byCustomer.values()) {
+    if (v > 0) total += v;
+  }
+  return total;
+}
+
+// ---------- CREDIT LOG ----------
+
+export async function addCreditEntry(entry: Omit<CreditEntry, 'id' | 'date'> & { date?: number }): Promise<number> {
+  const id = await db.creditLog.add({ ...entry, date: entry.date ?? Date.now() } as CreditEntry);
+  return id as number;
+}
+
+export async function getCustomerLedger(customerId: number): Promise<CreditEntry[]> {
+  return db.creditLog.where('customerId').equals(customerId).reverse().sortBy('date');
+}
+
+// ---------- EXPENSES ----------
+
+export async function addExpense(e: Omit<Expense, 'id' | 'date'> & { date?: number }): Promise<number> {
+  const id = await db.expenses.add({ ...e, date: e.date ?? Date.now() } as Expense);
+  return id as number;
+}
+
+export async function getExpensesInRange(start: number, end: number): Promise<Expense[]> {
+  return db.expenses.where('date').between(start, end, true, true).toArray();
+}
+
+export async function getAllExpenses(): Promise<Expense[]> {
+  return db.expenses.orderBy('date').reverse().toArray();
+}
+
+export async function deleteExpense(id: number): Promise<void> {
+  await db.expenses.delete(id);
+}
+
+export async function getExpensesTotal(start: number, end: number): Promise<number> {
+  const items = await getExpensesInRange(start, end);
+  return items.reduce((s, e) => s + e.amount, 0);
+}
+
+// ---------- WASTAGE ----------
+
+export async function addWastage(w: Omit<WastageRecord, 'id' | 'totalLoss'>): Promise<number> {
+  const item = await db.items.get(w.itemId);
+  if (!item) throw new Error('Item not found');
+  if (w.qty > item.currentStock) throw new Error('Not enough stock');
+  const totalLoss = w.qty * w.unitCost;
+  const id = await db.wastage.add({ ...w, totalLoss } as WastageRecord);
+  await adjustStock(w.itemId, -w.qty);
+  return id as number;
+}
+
+export async function getWastageInRange(start: number, end: number): Promise<WastageRecord[]> {
+  return db.wastage.where('date').between(start, end, true, true).toArray();
+}
+
+export async function getAllWastage(): Promise<WastageRecord[]> {
+  return db.wastage.orderBy('date').reverse().toArray();
+}
+
+export async function deleteWastage(id: number): Promise<void> {
+  const w = await db.wastage.get(id);
+  if (w) await adjustStock(w.itemId, w.qty);
+  await db.wastage.delete(id);
+}
+
+export async function getWastageTotal(start: number, end: number): Promise<number> {
+  const items = await getWastageInRange(start, end);
+  return items.reduce((s, w) => s + w.totalLoss, 0);
+}
+
+// ---------- SUPPLIERS ----------
+
+export async function getAllSuppliers(): Promise<Supplier[]> {
+  return db.suppliers.orderBy('name').toArray();
+}
+
+export async function addSupplier(s: Omit<Supplier, 'id' | 'createdAt'>): Promise<number> {
+  const existing = await db.suppliers.where('name').equalsIgnoreCase(s.name).first();
+  if (existing) throw new Error('Supplier with this name already exists');
+  const id = await db.suppliers.add({ ...s, createdAt: Date.now() } as Supplier);
+  return id as number;
+}
+
+export async function updateSupplier(id: number, changes: Partial<Supplier>): Promise<void> {
+  if (changes.name) {
+    const existing = await db.suppliers.where('name').equalsIgnoreCase(changes.name).first();
+    if (existing && existing.id !== id) throw new Error('Supplier with this name already exists');
+  }
+  await db.suppliers.update(id, changes);
+}
+
+export async function deleteSupplier(id: number): Promise<void> {
+  await db.suppliers.delete(id);
+}
+
+export async function getSupplierPurchaseStats(): Promise<(Supplier & { totalPurchased: number; purchaseCount: number })[]> {
+  const suppliers = await getAllSuppliers();
+  const allPurchases = await db.purchases.toArray();
+  return suppliers.map((s) => {
+    const matching = allPurchases.filter((p) => p.supplierName?.toLowerCase() === s.name.toLowerCase());
+    return {
+      ...s,
+      totalPurchased: matching.reduce((sum, p) => sum + p.totalCost, 0),
+      purchaseCount: matching.length,
+    };
   });
 }
 
@@ -237,7 +348,6 @@ export async function updateCategory(id: number, changes: Partial<Category>): Pr
     if (existing && existing.id !== id) {
       throw new Error('A category with this name already exists');
     }
-    // Rename: update all items pointing to old category name
     const old = await db.categories.get(id);
     if (old && old.name !== changes.name) {
       const itemsToUpdate = await db.items.where('category').equals(old.name).toArray();
@@ -264,4 +374,96 @@ export async function deleteCategory(id: number): Promise<{ blocked: boolean; co
 export async function getCategoryItemCount(categoryName: string): Promise<number> {
   const items = await db.items.where('category').equals(categoryName).toArray();
   return items.filter((i) => i.isActive).length;
+}
+
+// ---------- BACKUP / RESTORE ----------
+
+export async function exportAllData() {
+  const [items, purchases, sales, settings, categories, customers, creditLog, expenses, wastage, suppliers] = await Promise.all([
+    db.items.toArray(),
+    db.purchases.toArray(),
+    db.sales.toArray(),
+    db.settings.toArray(),
+    db.categories.toArray(),
+    db.customers.toArray(),
+    db.creditLog.toArray(),
+    db.expenses.toArray(),
+    db.wastage.toArray(),
+    db.suppliers.toArray(),
+  ]);
+  return {
+    exportedAt: Date.now(),
+    version: 3,
+    items,
+    purchases,
+    sales,
+    settings,
+    categories,
+    customers,
+    creditLog,
+    expenses,
+    wastage,
+    suppliers,
+  };
+}
+
+export async function importAllData(data: {
+  items: StockItem[];
+  purchases: PurchaseRecord[];
+  sales: SaleRecord[];
+  settings: AppSettings[];
+  categories?: Category[];
+  customers?: Customer[];
+  creditLog?: CreditEntry[];
+  expenses?: Expense[];
+  wastage?: WastageRecord[];
+  suppliers?: Supplier[];
+}) {
+  await db.transaction(
+    'rw',
+    db.items, db.purchases, db.sales, db.settings, db.categories,
+    db.customers, db.creditLog, db.expenses, db.wastage, db.suppliers,
+    async () => {
+      await db.items.clear();
+      await db.purchases.clear();
+      await db.sales.clear();
+      await db.settings.clear();
+      await db.categories.clear();
+      await db.customers.clear();
+      await db.creditLog.clear();
+      await db.expenses.clear();
+      await db.wastage.clear();
+      await db.suppliers.clear();
+      await db.items.bulkAdd(data.items);
+      await db.purchases.bulkAdd(data.purchases);
+      await db.sales.bulkAdd(data.sales);
+      await db.settings.bulkAdd(data.settings);
+      if (data.categories) await db.categories.bulkAdd(data.categories);
+      if (data.customers) await db.customers.bulkAdd(data.customers);
+      if (data.creditLog) await db.creditLog.bulkAdd(data.creditLog);
+      if (data.expenses) await db.expenses.bulkAdd(data.expenses);
+      if (data.wastage) await db.wastage.bulkAdd(data.wastage);
+      if (data.suppliers) await db.suppliers.bulkAdd(data.suppliers);
+    }
+  );
+}
+
+export async function deleteAllData(): Promise<void> {
+  await db.transaction(
+    'rw',
+    db.items, db.purchases, db.sales, db.settings, db.categories,
+    db.customers, db.creditLog, db.expenses, db.wastage, db.suppliers,
+    async () => {
+      await db.items.clear();
+      await db.purchases.clear();
+      await db.sales.clear();
+      await db.settings.clear();
+      await db.categories.clear();
+      await db.customers.clear();
+      await db.creditLog.clear();
+      await db.expenses.clear();
+      await db.wastage.clear();
+      await db.suppliers.clear();
+    }
+  );
 }
