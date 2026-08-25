@@ -535,7 +535,7 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
         <div className="border-t border-gray-100 pt-3">
           <button onClick={() => setAdminPassOpen(true)}
             className="w-full text-center py-2 tap-scale">
-            <p className="text-[9px] text-gray-300 font-medium tracking-widest">ADMIN</p>
+            <p className="text-[9px] text-transparent font-medium tracking-widest select-none">ADMIN</p>
           </button>
         </div>
       </div>
