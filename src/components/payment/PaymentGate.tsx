@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Lock, CreditCard, Calendar, CheckCircle, Upload, Phone, User, Hash, ArrowRight } from 'lucide-react';
+import { Lock, CreditCard, Calendar, CheckCircle, Upload, Phone, User, Hash, ArrowRight, SkipForward, AlertCircle } from 'lucide-react';
 import { getAdminConfig, getAllPaymentAccounts, addUserPayment } from '../../db/queries';
 import { useAppStore } from '../../store/useAppStore';
 import { formatCurrency } from '../../utils/calculations';
@@ -7,9 +7,10 @@ import type { AdminConfig, PaymentAccount, PaymentType, InstallmentPlan, Account
 
 interface Props {
   onUnlocked: () => void;
+  onSkip: () => void;
 }
 
-export default function PaymentGate({ onUnlocked }: Props) {
+export default function PaymentGate({ onUnlocked, onSkip }: Props) {
   const [step, setStep] = useState<'choice' | 'installment' | 'form' | 'submitted' | 'pending'>('choice');
   const [config, setConfig] = useState<AdminConfig | null>(null);
   const [accounts, setAccounts] = useState<PaymentAccount[]>([]);
@@ -20,17 +21,40 @@ export default function PaymentGate({ onUnlocked }: Props) {
   const [phone, setPhone] = useState('');
   const [username, setUsername] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const showToast = useAppStore((s) => s.showToast);
 
   useEffect(() => {
+    let cancelled = false;
     async function load() {
-      const cfg = await getAdminConfig();
-      setConfig(cfg);
-      const accs = await getAllPaymentAccounts();
-      setAccounts(accs.filter((a) => a.isActive));
-      if (accs.length > 0) setSelectedAccount(accs[0].type);
+      try {
+        const cfg = await getAdminConfig();
+        if (cancelled) return;
+        setConfig(cfg);
+        try {
+          const accs = await getAllPaymentAccounts();
+          if (!cancelled) {
+            setAccounts(accs.filter((a) => a.isActive));
+            if (accs.length > 0) setSelectedAccount(accs[0].type);
+          }
+        } catch {}
+      } catch (e) {
+        console.error('PaymentGate load error:', e);
+        if (!cancelled) {
+          setLoadError(true);
+          setConfig({
+            id: 1,
+            passwordHash: '',
+            appPrice: 500,
+            installmentDaily: 50,
+            installmentWeekly: 100,
+            installmentMonthly: 200,
+          });
+        }
+      }
     }
     load();
+    return () => { cancelled = true; };
   }, []);
 
   function handleFullPay() {
@@ -71,21 +95,45 @@ export default function PaymentGate({ onUnlocked }: Props) {
         accountType: selectedAccount,
       });
       setStep('submitted');
-    } catch {
+    } catch (e) {
+      console.error('Payment submit error:', e);
       showToast('Failed to submit', 'error');
     } finally {
       setSubmitting(false);
     }
   }
 
-  if (!config) return null;
+  if (loadError && !config) {
+    return (
+      <div className="fixed inset-0 z-[100] bg-surface flex flex-col items-center justify-center px-6">
+        <div className="w-full max-w-sm flex flex-col items-center gap-4">
+          <div className="w-16 h-16 rounded-2xl bg-red-100 flex items-center justify-center">
+            <AlertCircle size={32} className="text-red-500" />
+          </div>
+          <h2 className="text-[18px] font-bold text-gray-900">Connection Error</h2>
+          <p className="text-[13px] text-gray-500 text-center">Could not load payment information. Check your connection.</p>
+          <button onClick={() => window.location.reload()}
+            className="w-full py-3 rounded-2xl bg-brand-500 text-white font-bold text-[14px] tap-scale">
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!config) {
+    return (
+      <div className="fixed inset-0 z-[100] bg-surface flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   const activeAccount = accounts.find((a) => a.type === selectedAccount);
 
   return (
     <div className="fixed inset-0 z-[100] bg-surface flex flex-col items-center justify-center px-6">
       <div className="w-full max-w-sm">
-        {/* Header */}
         <div className="flex flex-col items-center gap-3 mb-8">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-lg">
             <Lock size={28} className="text-white" />
@@ -96,7 +144,6 @@ export default function PaymentGate({ onUnlocked }: Props) {
           </div>
         </div>
 
-        {/* STEP: Choice */}
         {step === 'choice' && (
           <div className="flex flex-col gap-3">
             <button onClick={handleFullPay}
@@ -122,10 +169,17 @@ export default function PaymentGate({ onUnlocked }: Props) {
               </div>
               <ArrowRight size={18} className="text-gray-400" />
             </button>
+
+            <button onClick={onSkip}
+              className="w-full py-3 rounded-2xl bg-gray-100 text-gray-500 font-semibold text-[13px] flex items-center justify-center gap-2 tap-scale">
+              <SkipForward size={15} /> Skip for now
+            </button>
+            <p className="text-[10px] text-gray-400 text-center -mt-1">
+              Skipped users cannot access premium features
+            </p>
           </div>
         )}
 
-        {/* STEP: Installment Plan */}
         {step === 'installment' && (
           <div className="flex flex-col gap-3">
             <p className="text-[13px] font-semibold text-gray-600 text-center mb-2">Select your plan</p>
@@ -153,7 +207,6 @@ export default function PaymentGate({ onUnlocked }: Props) {
           </div>
         )}
 
-        {/* STEP: Payment Form */}
         {step === 'form' && (
           <div className="flex flex-col gap-3">
             <div className="bg-brand-50 rounded-2xl p-4 text-center">
@@ -171,7 +224,6 @@ export default function PaymentGate({ onUnlocked }: Props) {
               )}
             </div>
 
-            {/* Account selector */}
             {activeAccount && (
               <div className="bg-white border border-gray-200 rounded-2xl p-4">
                 <p className="text-[11px] text-gray-400 font-medium mb-2">Send payment to</p>
@@ -189,7 +241,6 @@ export default function PaymentGate({ onUnlocked }: Props) {
               </div>
             )}
 
-            {/* Form fields */}
             <div className="flex flex-col gap-2.5">
               <div className="relative">
                 <Hash size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -219,7 +270,6 @@ export default function PaymentGate({ onUnlocked }: Props) {
           </div>
         )}
 
-        {/* STEP: Submitted */}
         {step === 'submitted' && (
           <div className="flex flex-col items-center gap-4 py-6">
             <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center">
@@ -236,9 +286,9 @@ export default function PaymentGate({ onUnlocked }: Props) {
                 Please wait for admin approval. This usually takes a few minutes.
               </p>
             </div>
-            <button onClick={onUnlocked}
+            <button onClick={onSkip}
               className="w-full py-3 rounded-2xl bg-gray-100 text-gray-600 font-semibold text-[13px] tap-scale">
-              Back to Home
+              Continue without paying
             </button>
           </div>
         )}
