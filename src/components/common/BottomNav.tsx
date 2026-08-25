@@ -29,6 +29,7 @@ export default function BottomNav({ active, onChange }: Props) {
           return (
             <button
               key={key}
+              id={`nav-${key}`}
               onClick={() => onChange(key)}
               className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 tap-scale relative"
             >
