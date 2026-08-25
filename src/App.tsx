@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import Header from './components/common/Header';
 import BottomNav, { type TabKey } from './components/common/BottomNav';
 import ToastContainer from './components/common/ToastContainer';
+import DebugConsole from './components/common/DebugConsole';
 import PinLock from './components/common/PinLock';
 import PaymentGate from './components/payment/PaymentGate';
 import Dashboard from './components/dashboard/Dashboard';
@@ -22,6 +23,13 @@ const DEFAULT_SETTINGS = {
   theme: 'light' as const,
 };
 
+function safeSessionGet(key: string): string | null {
+  try { return sessionStorage.getItem(key); } catch { return null; }
+}
+function safeSessionSet(key: string, val: string) {
+  try { sessionStorage.setItem(key, val); } catch {}
+}
+
 function SplashScreen() {
   return (
     <div className="h-full flex items-center justify-center bg-surface">
@@ -36,6 +44,7 @@ function SplashScreen() {
           <h1 className="text-[20px] font-bold text-gray-900">IceStock Pro</h1>
           <p className="text-[12px] text-gray-400 mt-1">Ice Cream & Juice Shop Manager</p>
         </div>
+        <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mt-2" />
       </div>
     </div>
   );
@@ -43,27 +52,26 @@ function SplashScreen() {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
-  const [phase, setPhase] = useState<'splash' | 'init' | 'ready'>('splash');
+  const [phase, setPhase] = useState<'splash' | 'ready'>('splash');
   const [lowStockCount, setLowStockCount] = useState(0);
   const [lowStockOpen, setLowStockOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem('isp_unlocked') === '1');
-  const [paid, setPaid] = useState(() => sessionStorage.getItem('isp_paid') === '1');
+  const [unlocked, setUnlocked] = useState(() => safeSessionGet('isp_unlocked') === '1');
+  const [paid, setPaid] = useState(() => safeSessionGet('isp_paid') === '1');
+  const [skipped, setSkipped] = useState(() => safeSessionGet('isp_skipped') === '1');
   const settings = useAppStore((s) => s.settings);
   const setSettings = useAppStore((s) => s.setSettings);
   const refreshKey = useAppStore((s) => s.refreshKey);
   const inited = useRef(false);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase('init'), 2000);
-    return () => clearTimeout(t1);
+    const t = setTimeout(() => setPhase('ready'), 2200);
+    return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
-    if (phase !== 'init' || inited.current) return;
+    if (phase !== 'ready' || inited.current) return;
     inited.current = true;
-
-    let forceReady: ReturnType<typeof setTimeout>;
 
     async function init() {
       try {
@@ -79,59 +87,56 @@ export default function App() {
       }
       try {
         const lastPayment = await getLatestApprovedPayment();
-        if (lastPayment) {
-          sessionStorage.setItem('isp_paid', '1');
+        if (lastPayment && lastPayment.status === 'approved') {
+          safeSessionSet('isp_paid', '1');
           setPaid(true);
         }
-      } catch (_) {}
-      clearTimeout(forceReady);
-      setPhase('ready');
-    }
-
-    forceReady = setTimeout(() => {
-      if (!useAppStore.getState().settings) {
-        setSettings(DEFAULT_SETTINGS);
+      } catch (e) {
+        console.error('Payment check error:', e);
       }
-      setPhase('ready');
-    }, 5000);
-
+    }
     init();
   }, [phase, setSettings]);
 
   useEffect(() => {
     if (phase !== 'ready') return;
-    getLowStockItems().then((items) => setLowStockCount(items.length));
+    getLowStockItems().then((items) => setLowStockCount(items.length)).catch(() => {});
   }, [phase, refreshKey, activeTab]);
 
   useEffect(() => {
     if (!settings) return;
-    const root = document.documentElement;
-    function applyDark(isDark: boolean) {
-      root.classList.toggle('dark', isDark);
-    }
-    if (settings.theme === 'dark') applyDark(true);
-    else if (settings.theme === 'light') applyDark(false);
-    else {
-      const mq = window.matchMedia('(prefers-color-scheme: dark)');
-      applyDark(mq.matches);
-      const listener = (e: MediaQueryListEvent) => applyDark(e.matches);
-      mq.addEventListener('change', listener);
-      return () => mq.removeEventListener('change', listener);
-    }
+    try {
+      const root = document.documentElement;
+      function applyDark(isDark: boolean) {
+        root.classList.toggle('dark', isDark);
+      }
+      if (settings.theme === 'dark') applyDark(true);
+      else if (settings.theme === 'light') applyDark(false);
+      else {
+        const mq = window.matchMedia('(prefers-color-scheme: dark)');
+        applyDark(mq.matches);
+        const listener = (e: MediaQueryListEvent) => applyDark(e.matches);
+        mq.addEventListener('change', listener);
+        return () => mq.removeEventListener('change', listener);
+      }
+    } catch {}
   }, [settings?.theme]);
 
-  if (phase === 'splash' || phase === 'init') {
+  if (phase === 'splash') {
     return <SplashScreen />;
   }
 
   const s = settings || DEFAULT_SETTINGS;
 
   if (s.pinHash && !unlocked) {
-    return <PinLock pinHash={s.pinHash} onUnlock={() => { sessionStorage.setItem('isp_unlocked', '1'); setUnlocked(true); }} />;
+    return <PinLock pinHash={s.pinHash} onUnlock={() => { safeSessionSet('isp_unlocked', '1'); setUnlocked(true); }} />;
   }
 
-  if (!paid) {
-    return <PaymentGate onUnlocked={() => { sessionStorage.setItem('isp_paid', '1'); setPaid(true); }} />;
+  if (!paid && !skipped) {
+    return <PaymentGate
+      onUnlocked={() => { safeSessionSet('isp_paid', '1'); setPaid(true); }}
+      onSkip={() => { safeSessionSet('isp_skipped', '1'); setSkipped(true); }}
+    />;
   }
 
   return (
@@ -155,6 +160,7 @@ export default function App() {
 
       <BottomNav active={activeTab} onChange={setActiveTab} />
       <ToastContainer />
+      <DebugConsole />
 
       <LowStockSheet
         isOpen={lowStockOpen}
