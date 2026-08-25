@@ -16,12 +16,13 @@ export default function Header({ shopName, lowStockCount, onBellClick, onSetting
             <IceCreamCone size={20} className="text-white" strokeWidth={2} />
           </div>
           <div className="min-w-0">
-            <h1 className="text-white font-bold text-[15px] leading-tight truncate">{shopName}</h1>
+            <h1 id="header-shop-name" className="text-white font-bold text-[15px] leading-tight truncate">{shopName}</h1>
             <p className="text-brand-100 text-[11px] leading-tight">IceStock Pro</p>
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <button
+            id="header-bell"
             onClick={onBellClick}
             className="relative w-9 h-9 rounded-full bg-white/15 flex items-center justify-center tap-scale"
           >
@@ -33,6 +34,7 @@ export default function Header({ shopName, lowStockCount, onBellClick, onSetting
             )}
           </button>
           <button
+            id="header-settings"
             onClick={onSettingsClick}
             className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center tap-scale"
           >
