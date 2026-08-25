@@ -47,8 +47,8 @@ export default function TermsSheet({ isOpen, onClose }: Props) {
 
         <Section title="10. Contact">
           For any questions about these Terms, please contact:
-          Email: rajahaider50@gmail.com
-          WhatsApp: +92 300 1234567
+          Email: rajahaider9053@gmail.com
+          WhatsApp: +92 349 5031007
         </Section>
 
         <p className="text-[11px] text-gray-400 text-center mt-2">
