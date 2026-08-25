@@ -1,4 +1,6 @@
 import { LayoutGrid, Package, ShoppingCart, Truck, BarChart3 } from 'lucide-react';
+import { useAppStore } from '../../store/useAppStore';
+import { getLabels } from '../../utils/i18n';
 
 export type TabKey = 'dashboard' | 'stock' | 'sales' | 'purchase' | 'reports';
 
@@ -7,15 +9,18 @@ interface Props {
   onChange: (tab: TabKey) => void;
 }
 
-const tabs: { key: TabKey; label: string; icon: typeof LayoutGrid }[] = [
-  { key: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
-  { key: 'stock', label: 'Stock', icon: Package },
-  { key: 'sales', label: 'Sales', icon: ShoppingCart },
-  { key: 'purchase', label: 'Purchase', icon: Truck },
-  { key: 'reports', label: 'Reports', icon: BarChart3 },
-];
-
 export default function BottomNav({ active, onChange }: Props) {
+  const lang = useAppStore((s) => s.settings?.language);
+  const labels = getLabels(lang);
+
+  const tabs: { key: TabKey; label: string; icon: typeof LayoutGrid }[] = [
+    { key: 'dashboard', label: labels.navDashboard, icon: LayoutGrid },
+    { key: 'stock', label: labels.navStock, icon: Package },
+    { key: 'sales', label: labels.navSales, icon: ShoppingCart },
+    { key: 'purchase', label: labels.navPurchase, icon: Truck },
+    { key: 'reports', label: labels.navReports, icon: BarChart3 },
+  ];
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-xl border-t border-gray-200/70 safe-bottom">
       <div className="flex items-stretch justify-between px-1 pt-1.5 pb-1 max-w-lg mx-auto">
