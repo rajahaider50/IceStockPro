@@ -13,6 +13,9 @@ import type {
   Expense,
   WastageRecord,
   Supplier,
+  AdminConfig,
+  PaymentAccount,
+  UserPayment,
 } from '../types';
 
 // ---------- ITEMS ----------
@@ -376,10 +379,108 @@ export async function getCategoryItemCount(categoryName: string): Promise<number
   return items.filter((i) => i.isActive).length;
 }
 
+// ---------- ADMIN CONFIG ----------
+
+export async function getAdminConfig(): Promise<AdminConfig> {
+  const all = await db.adminConfig.toArray();
+  if (all.length > 0) return all[0];
+  // Seed default
+  const defaultConfig: AdminConfig = {
+    passwordHash: '',
+    appPrice: 500,
+    installmentDaily: 50,
+    installmentWeekly: 100,
+    installmentMonthly: 200,
+  };
+  const id = await db.adminConfig.add(defaultConfig);
+  return { ...defaultConfig, id: id as number };
+}
+
+export async function updateAdminConfig(changes: Partial<AdminConfig>): Promise<void> {
+  const current = await getAdminConfig();
+  if (current.id) await db.adminConfig.update(current.id, changes);
+}
+
+// ---------- PAYMENT ACCOUNTS ----------
+
+export async function getAllPaymentAccounts(): Promise<PaymentAccount[]> {
+  return db.paymentAccounts.toArray();
+}
+
+export async function getActivePaymentAccounts(): Promise<PaymentAccount[]> {
+  return db.paymentAccounts.where('isActive').equals(1).toArray();
+}
+
+export async function addPaymentAccount(a: Omit<PaymentAccount, 'id' | 'createdAt'>): Promise<number> {
+  const id = await db.paymentAccounts.add({ ...a, createdAt: Date.now() } as PaymentAccount);
+  return id as number;
+}
+
+export async function updatePaymentAccount(id: number, changes: Partial<PaymentAccount>): Promise<void> {
+  await db.paymentAccounts.update(id, changes);
+}
+
+export async function deletePaymentAccount(id: number): Promise<void> {
+  await db.paymentAccounts.delete(id);
+}
+
+// ---------- USER PAYMENTS ----------
+
+export async function addUserPayment(p: Omit<UserPayment, 'id' | 'createdAt' | 'status'>): Promise<number> {
+  const id = await db.userPayments.add({ ...p, status: 'pending', createdAt: Date.now() } as UserPayment);
+  return id as number;
+}
+
+export async function getAllUserPayments(): Promise<UserPayment[]> {
+  return db.userPayments.orderBy('createdAt').reverse().toArray();
+}
+
+export async function getPendingPayments(): Promise<UserPayment[]> {
+  return db.userPayments.where('status').equals('pending').reverse().sortBy('createdAt');
+}
+
+export async function approvePayment(id: number, note?: string): Promise<void> {
+  await db.userPayments.update(id, { status: 'approved', adminNote: note, approvedAt: Date.now() });
+}
+
+export async function rejectPayment(id: number, note?: string): Promise<void> {
+  await db.userPayments.update(id, { status: 'rejected', adminNote: note });
+}
+
+export async function getLatestApprovedPayment(): Promise<UserPayment | undefined> {
+  const approved = await db.userPayments.where('status').equals('approved').reverse().sortBy('approvedAt');
+  return approved[0];
+}
+
+// ---------- SEED ADMIN DEFAULTS ----------
+
+export async function seedAdminDefaults(): Promise<void> {
+  const existing = await db.adminConfig.toArray();
+  if (existing.length === 0) {
+    await db.adminConfig.add({
+      passwordHash: '',
+      appPrice: 500,
+      installmentDaily: 50,
+      installmentWeekly: 100,
+      installmentMonthly: 200,
+    });
+  }
+  const accounts = await db.paymentAccounts.toArray();
+  if (accounts.length === 0) {
+    await db.paymentAccounts.add({
+      type: 'easypaisa',
+      holderName: 'Erum Naz',
+      phone: '03495031007',
+      isActive: true,
+      createdAt: Date.now(),
+    } as PaymentAccount);
+  }
+}
+
 // ---------- BACKUP / RESTORE ----------
 
 export async function exportAllData() {
-  const [items, purchases, sales, settings, categories, customers, creditLog, expenses, wastage, suppliers] = await Promise.all([
+  const [items, purchases, sales, settings, categories, customers, creditLog, expenses, wastage, suppliers, adminConfig, paymentAccounts, userPayments] = await Promise.all([
     db.items.toArray(),
     db.purchases.toArray(),
     db.sales.toArray(),
@@ -390,20 +491,15 @@ export async function exportAllData() {
     db.expenses.toArray(),
     db.wastage.toArray(),
     db.suppliers.toArray(),
+    db.adminConfig.toArray(),
+    db.paymentAccounts.toArray(),
+    db.userPayments.toArray(),
   ]);
   return {
     exportedAt: Date.now(),
-    version: 3,
-    items,
-    purchases,
-    sales,
-    settings,
-    categories,
-    customers,
-    creditLog,
-    expenses,
-    wastage,
-    suppliers,
+    version: 4,
+    items, purchases, sales, settings, categories, customers, creditLog, expenses, wastage, suppliers,
+    adminConfig, paymentAccounts, userPayments,
   };
 }
 
@@ -418,11 +514,15 @@ export async function importAllData(data: {
   expenses?: Expense[];
   wastage?: WastageRecord[];
   suppliers?: Supplier[];
+  adminConfig?: AdminConfig[];
+  paymentAccounts?: PaymentAccount[];
+  userPayments?: UserPayment[];
 }) {
   await db.transaction(
     'rw',
     db.items, db.purchases, db.sales, db.settings, db.categories,
     db.customers, db.creditLog, db.expenses, db.wastage, db.suppliers,
+    db.adminConfig, db.paymentAccounts, db.userPayments,
     async () => {
       await db.items.clear();
       await db.purchases.clear();
@@ -434,6 +534,9 @@ export async function importAllData(data: {
       await db.expenses.clear();
       await db.wastage.clear();
       await db.suppliers.clear();
+      await db.adminConfig.clear();
+      await db.paymentAccounts.clear();
+      await db.userPayments.clear();
       await db.items.bulkAdd(data.items);
       await db.purchases.bulkAdd(data.purchases);
       await db.sales.bulkAdd(data.sales);
@@ -444,6 +547,9 @@ export async function importAllData(data: {
       if (data.expenses) await db.expenses.bulkAdd(data.expenses);
       if (data.wastage) await db.wastage.bulkAdd(data.wastage);
       if (data.suppliers) await db.suppliers.bulkAdd(data.suppliers);
+      if (data.adminConfig) await db.adminConfig.bulkAdd(data.adminConfig);
+      if (data.paymentAccounts) await db.paymentAccounts.bulkAdd(data.paymentAccounts);
+      if (data.userPayments) await db.userPayments.bulkAdd(data.userPayments);
     }
   );
 }
@@ -453,6 +559,7 @@ export async function deleteAllData(): Promise<void> {
     'rw',
     db.items, db.purchases, db.sales, db.settings, db.categories,
     db.customers, db.creditLog, db.expenses, db.wastage, db.suppliers,
+    db.userPayments,
     async () => {
       await db.items.clear();
       await db.purchases.clear();
@@ -464,6 +571,8 @@ export async function deleteAllData(): Promise<void> {
       await db.expenses.clear();
       await db.wastage.clear();
       await db.suppliers.clear();
+      await db.userPayments.clear();
+      // adminConfig and paymentAccounts are NOT cleared — they persist on reset
     }
   );
 }
