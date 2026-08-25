@@ -15,6 +15,13 @@ import { getSettings, getLowStockItems, seedAdminDefaults, getLatestApprovedPaym
 import { seedIfEmpty } from './utils/seedData';
 import { useAppStore } from './store/useAppStore';
 
+const DEFAULT_SETTINGS = {
+  id: 1,
+  shopName: 'My Ice Cream & Juice Shop',
+  currency: 'Rs',
+  theme: 'light' as const,
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const [ready, setReady] = useState(false);
@@ -34,14 +41,19 @@ export default function App() {
         await seedAdminDefaults();
         const s = await getSettings();
         setSettings(s);
+      } catch (e) {
+        console.error('Init error:', e);
+        if (!useAppStore.getState().settings) {
+          setSettings(DEFAULT_SETTINGS);
+        }
+      }
+      try {
         const lastPayment = await getLatestApprovedPayment();
         if (lastPayment) {
           sessionStorage.setItem('isp_paid', '1');
           setPaid(true);
         }
-      } catch (e) {
-        console.error('Init error:', e);
-      }
+      } catch (_) {}
       setReady(true);
     }
     init();
@@ -69,7 +81,7 @@ export default function App() {
     }
   }, [settings?.theme]);
 
-  if (!ready || !settings) {
+  if (!ready) {
     return (
       <div className="h-full flex items-center justify-center bg-surface">
         <div className="flex flex-col items-center gap-3">
@@ -78,6 +90,11 @@ export default function App() {
         </div>
       </div>
     );
+  }
+
+  if (!settings) {
+    setSettings(DEFAULT_SETTINGS);
+    return null;
   }
 
   if (settings.pinHash && !unlocked) {
