@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Header from './components/common/Header';
 import BottomNav, { type TabKey } from './components/common/BottomNav';
 import ToastContainer from './components/common/ToastContainer';
@@ -36,7 +36,6 @@ function SplashScreen() {
           <h1 className="text-[20px] font-bold text-gray-900">IceStock Pro</h1>
           <p className="text-[12px] text-gray-400 mt-1">Ice Cream & Juice Shop Manager</p>
         </div>
-        <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mt-2" />
       </div>
     </div>
   );
@@ -44,8 +43,7 @@ function SplashScreen() {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
-  const [splashDone, setSplashDone] = useState(false);
-  const [ready, setReady] = useState(false);
+  const [phase, setPhase] = useState<'splash' | 'init' | 'ready'>('splash');
   const [lowStockCount, setLowStockCount] = useState(0);
   const [lowStockOpen, setLowStockOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -54,14 +52,19 @@ export default function App() {
   const settings = useAppStore((s) => s.settings);
   const setSettings = useAppStore((s) => s.setSettings);
   const refreshKey = useAppStore((s) => s.refreshKey);
+  const inited = useRef(false);
 
   useEffect(() => {
-    const t = setTimeout(() => setSplashDone(true), 2500);
-    return () => clearTimeout(t);
+    const t1 = setTimeout(() => setPhase('init'), 2000);
+    return () => clearTimeout(t1);
   }, []);
 
   useEffect(() => {
-    if (!splashDone) return;
+    if (phase !== 'init' || inited.current) return;
+    inited.current = true;
+
+    let forceReady: ReturnType<typeof setTimeout>;
+
     async function init() {
       try {
         await seedIfEmpty();
@@ -81,15 +84,24 @@ export default function App() {
           setPaid(true);
         }
       } catch (_) {}
-      setReady(true);
+      clearTimeout(forceReady);
+      setPhase('ready');
     }
+
+    forceReady = setTimeout(() => {
+      if (!useAppStore.getState().settings) {
+        setSettings(DEFAULT_SETTINGS);
+      }
+      setPhase('ready');
+    }, 5000);
+
     init();
-  }, [splashDone, setSettings]);
+  }, [phase, setSettings]);
 
   useEffect(() => {
-    if (!ready) return;
+    if (phase !== 'ready') return;
     getLowStockItems().then((items) => setLowStockCount(items.length));
-  }, [ready, refreshKey, activeTab]);
+  }, [phase, refreshKey, activeTab]);
 
   useEffect(() => {
     if (!settings) return;
@@ -108,21 +120,14 @@ export default function App() {
     }
   }, [settings?.theme]);
 
-  if (!splashDone) {
+  if (phase === 'splash' || phase === 'init') {
     return <SplashScreen />;
   }
 
-  if (!ready) {
-    return <SplashScreen />;
-  }
+  const s = settings || DEFAULT_SETTINGS;
 
-  if (!settings) {
-    setSettings(DEFAULT_SETTINGS);
-    return <SplashScreen />;
-  }
-
-  if (settings.pinHash && !unlocked) {
-    return <PinLock pinHash={settings.pinHash} onUnlock={() => { sessionStorage.setItem('isp_unlocked', '1'); setUnlocked(true); }} />;
+  if (s.pinHash && !unlocked) {
+    return <PinLock pinHash={s.pinHash} onUnlock={() => { sessionStorage.setItem('isp_unlocked', '1'); setUnlocked(true); }} />;
   }
 
   if (!paid) {
@@ -132,7 +137,7 @@ export default function App() {
   return (
     <div className="min-h-full bg-surface flex flex-col">
       <Header
-        shopName={settings.shopName}
+        shopName={s.shopName}
         lowStockCount={lowStockCount}
         onBellClick={() => setLowStockOpen(true)}
         onSettingsClick={() => setSettingsOpen(true)}
@@ -140,12 +145,12 @@ export default function App() {
 
       <main className="flex-1 pb-20">
         {activeTab === 'dashboard' && (
-          <Dashboard settings={settings} refreshKey={refreshKey} onViewLowStock={() => setLowStockOpen(true)} />
+          <Dashboard settings={s} refreshKey={refreshKey} onViewLowStock={() => setLowStockOpen(true)} />
         )}
-        {activeTab === 'stock' && <StockPage settings={settings} refreshKey={refreshKey} />}
-        {activeTab === 'sales' && <SalesPage settings={settings} refreshKey={refreshKey} />}
-        {activeTab === 'purchase' && <PurchasePage settings={settings} refreshKey={refreshKey} />}
-        {activeTab === 'reports' && <ReportsPage settings={settings} refreshKey={refreshKey} />}
+        {activeTab === 'stock' && <StockPage settings={s} refreshKey={refreshKey} />}
+        {activeTab === 'sales' && <SalesPage settings={s} refreshKey={refreshKey} />}
+        {activeTab === 'purchase' && <PurchasePage settings={s} refreshKey={refreshKey} />}
+        {activeTab === 'reports' && <ReportsPage settings={s} refreshKey={refreshKey} />}
       </main>
 
       <BottomNav active={activeTab} onChange={setActiveTab} />
@@ -154,10 +159,10 @@ export default function App() {
       <LowStockSheet
         isOpen={lowStockOpen}
         onClose={() => setLowStockOpen(false)}
-        settings={settings}
+        settings={s}
         refreshKey={refreshKey}
       />
-      <SettingsSheet isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} settings={settings} />
+      <SettingsSheet isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} settings={s} />
     </div>
   );
 }
