@@ -79,6 +79,9 @@ export interface AppSettings {
   ownerName?: string;
   phone?: string;
   lastBackupDate?: number;
+  dailyTarget?: number;
+  language?: 'en' | 'ur';
+  pinHash?: string;
 }
 
 export interface DailyAggregate {
@@ -93,4 +96,57 @@ export interface DailyAggregate {
 export interface CartEntry {
   item: StockItem;
   qty: number;
+}
+
+// ---- CUSTOMERS ----
+export interface Customer {
+  id?: number;
+  name: string;
+  phone?: string;
+  note?: string;
+  createdAt: number;
+}
+
+// ---- CREDIT / UDHAAR ----
+export type CreditEntryType = 'credit' | 'payment';
+export interface CreditEntry {
+  id?: number;
+  customerId: number;
+  saleId?: number;
+  type: CreditEntryType;
+  amount: number;
+  note?: string;
+  date: number;
+}
+
+// ---- EXPENSES ----
+export type ExpenseCategory = 'electricity' | 'rent' | 'salary' | 'transport' | 'other';
+export interface Expense {
+  id?: number;
+  title: string;
+  category: ExpenseCategory;
+  amount: number;
+  date: number;
+}
+
+// ---- WASTAGE ----
+export type WastageReason = 'melted' | 'damaged' | 'expired' | 'other';
+export interface WastageRecord {
+  id?: number;
+  itemId: number;
+  itemNameSnapshot: string;
+  qty: number;
+  unitCost: number;
+  totalLoss: number;
+  reason: WastageReason;
+  date: number;
+}
+
+// ---- SUPPLIERS ----
+export interface Supplier {
+  id?: number;
+  name: string;
+  phone?: string;
+  note?: string;
+  createdAt: number;
 }
