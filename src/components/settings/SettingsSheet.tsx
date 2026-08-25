@@ -2,11 +2,15 @@ import { useState, useRef } from 'react';
 import {
   Store, Download, Upload, Info, Trash2, AlertTriangle, Sun, Moon, Smartphone,
   Tag, ChevronRight, BookOpen, Users, Truck, ReceiptText, AlertOctagon,
-  Lock, Languages, Target, Eye, EyeOff,
+  Lock, Languages, Target, Eye, EyeOff, Code2, FileText, MessageCircle,
+  Type, Palette, Circle, LayoutGrid, PenTool,
 } from 'lucide-react';
 import BottomSheet from '../common/BottomSheet';
 import CategoryManagerSheet from '../common/CategoryManagerSheet';
 import GuideSheet from './GuideSheet';
+import AboutSheet from './AboutSheet';
+import TermsSheet from './TermsSheet';
+import ContactSheet from './ContactSheet';
 import CustomersSheet from '../customers/CustomersSheet';
 import CustomerLedgerSheet from '../customers/CustomerLedgerSheet';
 import SuppliersSheet from '../suppliers/SuppliersSheet';
@@ -15,7 +19,39 @@ import WastageSheet from '../wastage/WastageSheet';
 import { updateSettings, exportAllData, importAllData, deleteAllData } from '../../db/queries';
 import { useAppStore } from '../../store/useAppStore';
 import { hashPin } from '../common/PinLock';
-import type { AppSettings, ThemeMode } from '../../types';
+import type { AppSettings, ThemeMode, FontFamily, BorderRadius, IconStyle } from '../../types';
+
+const FONTS: { key: FontFamily; label: string; sample: string }[] = [
+  { key: 'inter', label: 'Inter', sample: 'Aa Bb' },
+  { key: 'roboto', label: 'Roboto', sample: 'Aa Bb' },
+  { key: 'poppins', label: 'Poppins', sample: 'Aa Bb' },
+  { key: 'montserrat', label: 'Montserrat', sample: 'Aa Bb' },
+  { key: 'nunito', label: 'Nunito', sample: 'Aa Bb' },
+];
+
+const COLORS = [
+  { name: 'Blue', value: '#059bf2' },
+  { name: 'Indigo', value: '#6366f1' },
+  { name: 'Purple', value: '#a855f7' },
+  { name: 'Pink', value: '#ec4899' },
+  { name: 'Red', value: '#ef4444' },
+  { name: 'Orange', value: '#f97316' },
+  { name: 'Amber', value: '#f59e0b' },
+  { name: 'Green', value: '#22c55e' },
+  { name: 'Teal', value: '#14b8a6' },
+  { name: 'Cyan', value: '#06b6d4' },
+];
+
+const RADII: { key: BorderRadius; label: string; demo: string }[] = [
+  { key: 'standard', label: 'Standard', demo: 'rounded-xl' },
+  { key: 'rounded', label: 'More Rounded', demo: 'rounded-2xl' },
+  { key: 'pill', label: 'Pill', demo: 'rounded-full' },
+];
+
+const ICON_STYLES: { key: IconStyle; label: string; desc: string }[] = [
+  { key: 'outline', label: 'Outline', desc: 'Clean line icons' },
+  { key: 'filled', label: 'Filled', desc: 'Solid filled icons' },
+];
 
 interface Props {
   isOpen: boolean;
@@ -31,6 +67,9 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
   const [confirmText, setConfirmText] = useState('');
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
   const [customersOpen, setCustomersOpen] = useState(false);
   const [ledgerCustomerId, setLedgerCustomerId] = useState<number | null>(null);
   const [suppliersOpen, setSuppliersOpen] = useState(false);
@@ -38,6 +77,10 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
   const [wastageOpen, setWastageOpen] = useState(false);
   const [dailyTarget, setDailyTarget] = useState(String(settings.dailyTarget || ''));
   const [language, setLanguage] = useState<'en' | 'ur'>(settings.language || 'en');
+  const [fontFamily, setFontFamily] = useState<FontFamily>(settings.fontFamily || 'inter');
+  const [primaryColor, setPrimaryColor] = useState(settings.primaryColor || '#059bf2');
+  const [borderRadius, setBorderRadius] = useState<BorderRadius>(settings.borderRadius || 'rounded');
+  const [iconStyle, setIconStyle] = useState<IconStyle>(settings.iconStyle || 'outline');
   const [pinInput, setPinInput] = useState('');
   const [pinConfirm, setPinConfirm] = useState('');
   const [pinShow, setPinShow] = useState(false);
@@ -54,14 +97,34 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
   }
 
   async function handleSave() {
-    const changes: Partial<AppSettings> = { shopName, currency };
+    const changes: Partial<AppSettings> = {
+      shopName, currency, theme, language,
+      fontFamily, primaryColor, borderRadius, iconStyle,
+    };
     if (dailyTarget) changes.dailyTarget = parseFloat(dailyTarget) || undefined;
     else changes.dailyTarget = undefined;
-    changes.language = language;
     await updateSettings(changes);
     setSettings({ ...settings, ...changes });
+    // Apply customizations
+    applyFont(fontFamily);
+    applyPrimaryColor(primaryColor);
     showToast('Settings saved');
     onClose();
+  }
+
+  function applyFont(font: FontFamily) {
+    const families: Record<FontFamily, string> = {
+      inter: "'Inter', system-ui, sans-serif",
+      roboto: "'Roboto', system-ui, sans-serif",
+      poppins: "'Poppins', system-ui, sans-serif",
+      montserrat: "'Montserrat', system-ui, sans-serif",
+      nunito: "'Nunito', system-ui, sans-serif",
+    };
+    document.documentElement.style.setProperty('--font-display', families[font]);
+  }
+
+  function applyPrimaryColor(color: string) {
+    document.documentElement.style.setProperty('--color-brand-500', color);
   }
 
   async function handleBackup() {
@@ -133,12 +196,14 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Settings">
       <div className="flex flex-col gap-5 pb-6">
+        {/* App Icon */}
         <div className="flex justify-center">
           <div className="w-16 h-16 rounded-2xl bg-brand-50 flex items-center justify-center">
             <Store size={26} className="text-brand-500" />
           </div>
         </div>
 
+        {/* Shop Info */}
         <div>
           <label className="text-[11.5px] font-semibold text-gray-500 mb-1.5 block">Shop Name</label>
           <input value={shopName} onChange={(e) => setShopName(e.target.value)} className="input-field" />
@@ -149,6 +214,7 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
           <input value={currency} onChange={(e) => setCurrency(e.target.value)} className="input-field" />
         </div>
 
+        {/* Theme */}
         <div>
           <label className="text-[11.5px] font-semibold text-gray-500 mb-1.5 block">Appearance</label>
           <div className="flex gap-2">
@@ -160,13 +226,10 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
               const Icon = opt.icon;
               const active = theme === opt.value;
               return (
-                <button
-                  key={opt.value}
-                  onClick={() => handleThemeChange(opt.value)}
+                <button key={opt.value} onClick={() => handleThemeChange(opt.value)}
                   className={`flex-1 py-2.5 rounded-xl flex flex-col items-center gap-1 tap-scale ${
                     active ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-500'
-                  }`}
-                >
+                  }`}>
                   <Icon size={16} />
                   <span className="text-[11px] font-semibold">{opt.label}</span>
                 </button>
@@ -200,24 +263,93 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
           </div>
         </div>
 
-        <button onClick={handleSave} className="w-full py-3.5 rounded-2xl bg-brand-500 text-white font-bold text-[14px] tap-scale">
+        <button onClick={handleSave}
+          className="w-full py-3.5 rounded-2xl bg-brand-500 text-white font-bold text-[14px] tap-scale">
           Save Settings
         </button>
 
-        {/* Help */}
+        {/* ====== CUSTOMIZATION ====== */}
         <div className="border-t border-gray-100 pt-4">
-          <p className="text-[12px] font-bold text-gray-500 mb-2">Help</p>
-          <button onClick={() => setGuideOpen(true)}
-            className="w-full flex items-center gap-3 bg-gradient-to-r from-brand-600 to-brand-500 rounded-2xl p-3.5 tap-scale">
-            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-              <BookOpen size={16} className="text-white" />
+          <p className="text-[12px] font-bold text-gray-500 mb-3">Customization / تخصیص</p>
+
+          {/* Font Style */}
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Type size={14} className="text-gray-500" />
+              <p className="text-[11.5px] font-semibold text-gray-600">Font Style</p>
             </div>
-            <span className="text-[13px] font-bold text-white flex-1 text-left">Complete Guide / مکمل گائیڈ</span>
-            <ChevronRight size={16} className="text-white/70" />
-          </button>
+            <div className="grid grid-cols-3 gap-2">
+              {FONTS.map((f) => (
+                <button key={f.key} onClick={() => setFontFamily(f.key)}
+                  className={`py-2.5 rounded-xl text-center tap-scale ${
+                    fontFamily === f.key ? 'bg-brand-500 text-white' : 'bg-gray-50 text-gray-600 border border-gray-100'
+                  }`}>
+                  <p className="text-[12px] font-bold" style={{ fontFamily: f.key }}>{f.label}</p>
+                  <p className="text-[9px] opacity-60">{f.sample}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Primary Color */}
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Palette size={14} className="text-gray-500" />
+              <p className="text-[11.5px] font-semibold text-gray-600">Primary Color</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {COLORS.map((c) => (
+                <button key={c.value} onClick={() => setPrimaryColor(c.value)}
+                  className={`w-9 h-9 rounded-full tap-scale border-2 ${
+                    primaryColor === c.value ? 'border-gray-900 scale-110' : 'border-white'
+                  }`}
+                  style={{ backgroundColor: c.value }}
+                  title={c.name}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Border Radius */}
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Circle size={14} className="text-gray-500" />
+              <p className="text-[11.5px] font-semibold text-gray-600">Corner Style</p>
+            </div>
+            <div className="flex gap-2">
+              {RADII.map((r) => (
+                <button key={r.key} onClick={() => setBorderRadius(r.key)}
+                  className={`flex-1 py-2.5 text-center tap-scale ${
+                    borderRadius === r.key ? 'bg-brand-500 text-white' : 'bg-gray-50 text-gray-600 border border-gray-100'
+                  }`}
+                  style={{ borderRadius: r.key === 'standard' ? '12px' : r.key === 'rounded' ? '16px' : '9999px' }}>
+                  <p className="text-[11px] font-semibold">{r.label}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Icon Style */}
+          <div className="mb-2">
+            <div className="flex items-center gap-2 mb-2">
+              <LayoutGrid size={14} className="text-gray-500" />
+              <p className="text-[11.5px] font-semibold text-gray-600">Icon Style</p>
+            </div>
+            <div className="flex gap-2">
+              {ICON_STYLES.map((s) => (
+                <button key={s.key} onClick={() => setIconStyle(s.key)}
+                  className={`flex-1 py-2.5 rounded-xl text-center tap-scale ${
+                    iconStyle === s.key ? 'bg-brand-500 text-white' : 'bg-gray-50 text-gray-600 border border-gray-100'
+                  }`}>
+                  <p className="text-[11px] font-semibold">{s.label}</p>
+                  <p className="text-[9px] opacity-60">{s.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Business Tools */}
+        {/* ====== BUSINESS TOOLS ====== */}
         <div className="border-t border-gray-100 pt-4">
           <p className="text-[12px] font-bold text-gray-500 mb-2">Business Tools / کاروباری ٹولز</p>
           <div className="flex flex-col gap-2">
@@ -242,7 +374,7 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
           </div>
         </div>
 
-        {/* Item Management */}
+        {/* ====== ITEM MANAGEMENT ====== */}
         <div className="border-t border-gray-100 pt-4">
           <p className="text-[12px] font-bold text-gray-500 mb-2">Item Management</p>
           <button onClick={() => setCategoryManagerOpen(true)}
@@ -255,7 +387,7 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
           </button>
         </div>
 
-        {/* Security */}
+        {/* ====== SECURITY ====== */}
         <div className="border-t border-gray-100 pt-4">
           <p className="text-[12px] font-bold text-gray-500 mb-2">Security / سیکیورٹی</p>
           <div className="bg-gray-50 rounded-2xl p-3.5">
@@ -320,7 +452,44 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
           </div>
         </div>
 
-        {/* Backup & Restore */}
+        {/* ====== HELP ====== */}
+        <div className="border-t border-gray-100 pt-4">
+          <p className="text-[12px] font-bold text-gray-500 mb-2">Help</p>
+          <button onClick={() => setGuideOpen(true)}
+            className="w-full flex items-center gap-3 bg-gradient-to-r from-brand-600 to-brand-500 rounded-2xl p-3.5 tap-scale">
+            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+              <BookOpen size={16} className="text-white" />
+            </div>
+            <span className="text-[13px] font-bold text-white flex-1 text-left">Complete Guide / مکمل گائیڈ</span>
+            <ChevronRight size={16} className="text-white/70" />
+          </button>
+        </div>
+
+        {/* ====== ABOUT / LEGAL ====== */}
+        <div className="border-t border-gray-100 pt-4">
+          <p className="text-[12px] font-bold text-gray-500 mb-2">About & Legal</p>
+          <div className="flex flex-col gap-2">
+            {[
+              { icon: Code2, label: 'About / Developer Info', color: 'bg-purple-50 text-purple-500', onClick: () => setAboutOpen(true) },
+              { icon: MessageCircle, label: 'Contact Us / رابطہ', color: 'bg-green-50 text-green-600', onClick: () => setContactOpen(true) },
+              { icon: FileText, label: 'Terms & Conditions', color: 'bg-blue-50 text-blue-500', onClick: () => setTermsOpen(true) },
+            ].map((row) => {
+              const Icon = row.icon;
+              return (
+                <button key={row.label} onClick={row.onClick}
+                  className="w-full flex items-center gap-3 bg-white border border-gray-100 rounded-2xl p-3.5 tap-scale">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${row.color}`}>
+                    <Icon size={16} />
+                  </div>
+                  <span className="text-[13px] font-semibold text-gray-800 flex-1 text-left">{row.label}</span>
+                  <ChevronRight size={16} className="text-gray-300" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ====== BACKUP & RESTORE ====== */}
         <div className="border-t border-gray-100 pt-4">
           <p className="text-[12px] font-bold text-gray-500 mb-2">Backup &amp; Restore</p>
           <p className="text-[11.5px] text-gray-400 mb-3">
@@ -339,11 +508,11 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
           </div>
         </div>
 
-        {/* Danger Zone */}
+        {/* ====== DANGER ZONE ====== */}
         <div className="border-t border-gray-100 pt-4">
           <p className="text-[12px] font-bold text-red-500 mb-2">Danger Zone</p>
           <p className="text-[11.5px] text-gray-400 mb-3">
-            Permanently erase all items, sales, and purchase history. This cannot be undone — download a backup first if you might need this data later.
+            Permanently erase all items, sales, and purchase history. This cannot be undone — download a backup first.
           </p>
           <button onClick={() => setDeleteStep(1)}
             className="w-full py-3 rounded-2xl bg-red-50 text-red-600 font-semibold text-[13px] flex items-center justify-center gap-2 tap-scale">
@@ -359,8 +528,12 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
         </div>
       </div>
 
+      {/* ====== SHEETS ====== */}
       <CategoryManagerSheet isOpen={categoryManagerOpen} onClose={() => setCategoryManagerOpen(false)} />
       <GuideSheet isOpen={guideOpen} onClose={() => setGuideOpen(false)} />
+      <AboutSheet isOpen={aboutOpen} onClose={() => setAboutOpen(false)} />
+      <TermsSheet isOpen={termsOpen} onClose={() => setTermsOpen(false)} />
+      <ContactSheet isOpen={contactOpen} onClose={() => setContactOpen(false)} />
       <CustomersSheet isOpen={customersOpen} onClose={() => setCustomersOpen(false)}
         onLedgerOpen={(id) => { setCustomersOpen(false); setLedgerCustomerId(id); }} />
       <CustomerLedgerSheet isOpen={ledgerCustomerId !== null} onClose={() => setLedgerCustomerId(null)}
