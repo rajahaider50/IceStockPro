@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Header from './components/common/Header';
 import BottomNav, { type TabKey } from './components/common/BottomNav';
 import ToastContainer from './components/common/ToastContainer';
+import PinLock from './components/common/PinLock';
 import Dashboard from './components/dashboard/Dashboard';
 import LowStockSheet from './components/dashboard/LowStockSheet';
 import StockPage from './components/stock/StockPage';
@@ -19,6 +20,7 @@ export default function App() {
   const [lowStockCount, setLowStockCount] = useState(0);
   const [lowStockOpen, setLowStockOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem('isp_unlocked') === '1');
   const settings = useAppStore((s) => s.settings);
   const setSettings = useAppStore((s) => s.setSettings);
   const refreshKey = useAppStore((s) => s.refreshKey);
@@ -70,6 +72,10 @@ export default function App() {
         </div>
       </div>
     );
+  }
+
+  if (settings.pinHash && !unlocked) {
+    return <PinLock pinHash={settings.pinHash} onUnlock={() => { sessionStorage.setItem('isp_unlocked', '1'); setUnlocked(true); }} />;
   }
 
   return (
