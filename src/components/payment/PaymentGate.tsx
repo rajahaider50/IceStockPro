@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Lock, CreditCard, Calendar, CheckCircle, Upload, Phone, User, Hash, ArrowRight, X, Clock, XCircle, Tag, ChevronRight } from 'lucide-react';
-import { getAdminConfig, getAllPaymentAccounts, addUserPayment } from '../../db/queries';
+import { getCustomPackages, getAllPaymentAccounts, addUserPayment } from '../../db/queries';
 import { useAppStore } from '../../store/useAppStore';
 import { PACKAGES, getPackageById, formatPackagePrice, type Package } from '../../utils/packages';
-import type { AdminConfig, PaymentAccount, PaymentType, InstallmentPlan, AccountType } from '../../types';
+import type { PaymentAccount, PaymentType, InstallmentPlan, AccountType } from '../../types';
 
 interface Props {
   isOpen: boolean;
@@ -15,6 +15,7 @@ interface Props {
 export default function PaymentGate({ isOpen, onClose, onPaid, status }: Props) {
   const [step, setStep] = useState<'packages' | 'plan' | 'plansel' | 'form' | 'submitted'>('packages');
   const [selectedPkg, setSelectedPkg] = useState<Package>(PACKAGES[0]);
+  const [packages, setPackages] = useState<Package[]>(PACKAGES);
   const [accounts, setAccounts] = useState<PaymentAccount[]>([]);
   const [paymentType, setPaymentType] = useState<PaymentType>('full');
   const [installmentPlan, setInstallmentPlan] = useState<InstallmentPlan>('monthly');
@@ -31,12 +32,22 @@ export default function PaymentGate({ isOpen, onClose, onPaid, status }: Props) 
     setTransactionId('');
     setPhone('');
     setUsername('');
-    setSelectedPkg(PACKAGES[0]);
+    setSelectedPkg(packages[0]);
     setPaymentType('full');
 
     let cancelled = false;
     async function load() {
       try {
+        const customJson = await getCustomPackages();
+        if (!cancelled && customJson) {
+          try {
+            const custom = JSON.parse(customJson) as Package[];
+            if (custom.length > 0) {
+              setPackages(custom);
+              setSelectedPkg(custom[0]);
+            }
+          } catch {}
+        }
         const accs = await getAllPaymentAccounts();
         if (!cancelled) {
           setAccounts(accs.filter((a) => a.isActive));
@@ -204,7 +215,7 @@ export default function PaymentGate({ isOpen, onClose, onPaid, status }: Props) 
           {/* STEP: Choose Package */}
           {step === 'packages' && status !== 'pending' && !(status === 'rejected') && (
             <div className="flex flex-col gap-2 pt-3">
-              {PACKAGES.map((pkg) => (
+              {packages.map((pkg) => (
                 <button key={pkg.id} onClick={() => handleSelectPackage(pkg)}
                   className="w-full bg-white border border-gray-200 rounded-2xl p-3.5 flex items-center gap-3 tap-scale active:bg-gray-50">
                   <div className={`w-11 h-11 rounded-xl ${getBgColor(pkg.color)} flex items-center justify-center shrink-0`}>
