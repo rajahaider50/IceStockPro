@@ -458,7 +458,7 @@ export async function seedAdminDefaults(): Promise<void> {
   const existing = await db.adminConfig.toArray();
   if (existing.length === 0) {
     await db.adminConfig.add({
-      passwordHash: '',
+      passwordHash: 'f5453db7',
       appPrice: 500,
       installmentDaily: 50,
       installmentWeekly: 100,
