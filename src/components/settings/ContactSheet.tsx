@@ -28,9 +28,9 @@ export default function ContactSheet({ isOpen, onClose }: Props) {
             iconBg="bg-red-50"
             iconColor="text-red-500"
             title="Email Us"
-            subtitle="rajahaider50@gmail.com"
+            subtitle="rajahaider9053@gmail.com"
             action="Send Email"
-            href="mailto:rajahaider50@gmail.com?subject=IceStock%20Pro%20Support"
+            href="mailto:rajahaider9053@gmail.com?subject=IceStock%20Pro%20Support"
           />
 
           <ContactCard
@@ -38,9 +38,9 @@ export default function ContactSheet({ isOpen, onClose }: Props) {
             iconBg="bg-emerald-50"
             iconColor="text-emerald-500"
             title="Call Us"
-            subtitle="+92 300 1234567"
+            subtitle="+92 349 5031007"
             action="Call Now"
-            href="tel:+923001234567"
+            href="tel:+923495031007"
           />
 
           <ContactCard
@@ -50,7 +50,7 @@ export default function ContactSheet({ isOpen, onClose }: Props) {
             title="WhatsApp"
             subtitle="Quick response within 24 hours"
             action="Chat on WhatsApp"
-            href="https://wa.me/923001234567?text=Hi%2C%20I%20need%20help%20with%20IceStock%20Pro"
+            href="https://wa.me/923495031007?text=Hi%2C%20I%20need%20help%20with%20IceStock%20Pro"
           />
 
           <ContactCard
