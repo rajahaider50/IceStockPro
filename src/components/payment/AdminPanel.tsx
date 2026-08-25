@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import {
   Settings, Plus, Trash2, Edit2, CheckCircle, XCircle, Clock, Eye,
-  DollarSign, Lock, ChevronRight, Users, History, Key, Shield,
+  DollarSign, Lock, ChevronRight, Users, History, Key, Shield, Package,
 } from 'lucide-react';
 import BottomSheet from '../common/BottomSheet';
 import ConfirmDialog from '../common/ConfirmDialog';
+import PackagesManager from './PackagesManager';
 import {
   getAdminConfig, updateAdminConfig,
   getAllPaymentAccounts, addPaymentAccount, updatePaymentAccount, deletePaymentAccount,
@@ -21,7 +22,7 @@ interface Props {
 }
 
 export default function AdminPanel({ isOpen, onClose }: Props) {
-  const [tab, setTab] = useState<'dashboard' | 'accounts' | 'requests' | 'history' | 'settings'>('dashboard');
+  const [tab, setTab] = useState<'dashboard' | 'accounts' | 'packages' | 'requests' | 'history' | 'settings'>('dashboard');
   const [config, setConfig] = useState<AdminConfig | null>(null);
   const [accounts, setAccounts] = useState<PaymentAccount[]>([]);
   const [payments, setPayments] = useState<UserPayment[]>([]);
@@ -35,6 +36,7 @@ export default function AdminPanel({ isOpen, onClose }: Props) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [deletingAccount, setDeletingAccount] = useState<PaymentAccount | null>(null);
+  const [packagesOpen, setPackagesOpen] = useState(false);
   const showToast = useAppStore((s) => s.showToast);
 
   useEffect(() => {
@@ -133,12 +135,14 @@ export default function AdminPanel({ isOpen, onClose }: Props) {
   const pendingCount = payments.filter((p) => p.status === 'pending').length;
 
   return (
+    <>
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Admin Panel" maxHeight="90vh">
       {/* Tab bar */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-4 -mx-1">
         {([
           { key: 'dashboard' as const, icon: Shield, label: 'Home' },
           { key: 'accounts' as const, icon: DollarSign, label: 'Accounts' },
+          { key: 'packages' as const, icon: Package, label: 'Packages' },
           { key: 'requests' as const, icon: Clock, label: `Requests${pendingCount > 0 ? ` (${pendingCount})` : ''}` },
           { key: 'history' as const, icon: History, label: 'History' },
           { key: 'settings' as const, icon: Settings, label: 'Config' },
@@ -243,6 +247,28 @@ export default function AdminPanel({ isOpen, onClose }: Props) {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* PACKAGES */}
+      {tab === 'packages' && (
+        <div className="flex flex-col gap-3">
+          <div className="bg-brand-50 rounded-xl p-3">
+            <p className="text-[11px] text-brand-500 font-medium mb-1">Pricing Packages</p>
+            <p className="text-[12px] text-gray-700">
+              Manage 10 pricing packages shown to users. Set full price and discounts auto-calculate.
+            </p>
+          </div>
+          <button onClick={() => setPackagesOpen(true)}
+            className="w-full py-3 rounded-xl bg-brand-500 text-white font-semibold text-[13px] flex items-center justify-center gap-2 tap-scale">
+            <Package size={15} /> Open Package Manager
+          </button>
+          <div className="bg-gray-50 rounded-xl p-3">
+            <p className="text-[10px] text-gray-400 leading-relaxed">
+              Users see these packages when activating the app. Original package (Package 1) is always the real price with no discount.
+              Other packages have auto-calculated discounts based on the full price you set.
+            </p>
+          </div>
         </div>
       )}
 
@@ -387,5 +413,8 @@ export default function AdminPanel({ isOpen, onClose }: Props) {
         message="This payment account will be permanently removed."
         onConfirm={handleDeleteAccount} onCancel={() => setDeletingAccount(null)} />
     </BottomSheet>
+
+    <PackagesManager isOpen={packagesOpen} onClose={() => setPackagesOpen(false)} />
+    </>
   );
 }
