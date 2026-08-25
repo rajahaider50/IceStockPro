@@ -70,6 +70,10 @@ export interface SaleRecord {
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
+export type FontFamily = 'inter' | 'roboto' | 'poppins' | 'montserrat' | 'nunito';
+export type BorderRadius = 'standard' | 'rounded' | 'pill';
+export type IconStyle = 'outline' | 'filled';
+
 export interface AppSettings {
   id?: number;
   shopName: string;
@@ -82,6 +86,10 @@ export interface AppSettings {
   dailyTarget?: number;
   language?: 'en' | 'ur';
   pinHash?: string;
+  fontFamily?: FontFamily;
+  primaryColor?: string;
+  borderRadius?: BorderRadius;
+  iconStyle?: IconStyle;
 }
 
 export interface DailyAggregate {
