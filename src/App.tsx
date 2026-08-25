@@ -3,6 +3,7 @@ import Header from './components/common/Header';
 import BottomNav, { type TabKey } from './components/common/BottomNav';
 import ToastContainer from './components/common/ToastContainer';
 import PinLock from './components/common/PinLock';
+import PaymentGate from './components/payment/PaymentGate';
 import Dashboard from './components/dashboard/Dashboard';
 import LowStockSheet from './components/dashboard/LowStockSheet';
 import StockPage from './components/stock/StockPage';
@@ -10,7 +11,7 @@ import SalesPage from './components/sales/SalesPage';
 import PurchasePage from './components/purchase/PurchasePage';
 import ReportsPage from './components/reports/ReportsPage';
 import SettingsSheet from './components/settings/SettingsSheet';
-import { getSettings, getLowStockItems } from './db/queries';
+import { getSettings, getLowStockItems, seedAdminDefaults, getLatestApprovedPayment } from './db/queries';
 import { seedIfEmpty } from './utils/seedData';
 import { useAppStore } from './store/useAppStore';
 
@@ -21,6 +22,7 @@ export default function App() {
   const [lowStockOpen, setLowStockOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem('isp_unlocked') === '1');
+  const [paid, setPaid] = useState(() => sessionStorage.getItem('isp_paid') === '1');
   const settings = useAppStore((s) => s.settings);
   const setSettings = useAppStore((s) => s.setSettings);
   const refreshKey = useAppStore((s) => s.refreshKey);
@@ -28,8 +30,15 @@ export default function App() {
   useEffect(() => {
     async function init() {
       await seedIfEmpty();
+      await seedAdminDefaults();
       const s = await getSettings();
       setSettings(s);
+      // Check if user has an approved payment
+      const lastPayment = await getLatestApprovedPayment();
+      if (lastPayment) {
+        sessionStorage.setItem('isp_paid', '1');
+        setPaid(true);
+      }
       setReady(true);
     }
     init();
@@ -40,21 +49,15 @@ export default function App() {
     getLowStockItems().then((items) => setLowStockCount(items.length));
   }, [ready, refreshKey, activeTab]);
 
-  // Apply theme (light/dark/system) to the document root
   useEffect(() => {
     if (!settings) return;
     const root = document.documentElement;
-
     function applyDark(isDark: boolean) {
       root.classList.toggle('dark', isDark);
     }
-
-    if (settings.theme === 'dark') {
-      applyDark(true);
-    } else if (settings.theme === 'light') {
-      applyDark(false);
-    } else {
-      // system
+    if (settings.theme === 'dark') applyDark(true);
+    else if (settings.theme === 'light') applyDark(false);
+    else {
       const mq = window.matchMedia('(prefers-color-scheme: dark)');
       applyDark(mq.matches);
       const listener = (e: MediaQueryListEvent) => applyDark(e.matches);
@@ -76,6 +79,10 @@ export default function App() {
 
   if (settings.pinHash && !unlocked) {
     return <PinLock pinHash={settings.pinHash} onUnlock={() => { sessionStorage.setItem('isp_unlocked', '1'); setUnlocked(true); }} />;
+  }
+
+  if (!paid) {
+    return <PaymentGate onUnlocked={() => { sessionStorage.setItem('isp_paid', '1'); setPaid(true); }} />;
   }
 
   return (
