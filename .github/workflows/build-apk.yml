@@ -13,12 +13,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Setup Java JDK
+      - name: Setup Java JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -27,89 +22,85 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Bubblewrap
-        run: npm install -g @nicedash/nicedash-cli bubblewrap-cli 2>/dev/null || npm install -g @nicedash/nicedash-cli 2>/dev/null || npm install -g bubblewrap-cli
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Init TWA Project
+      - name: Accept Android SDK Licenses
+        run: yes | sdkmanager --licenses || true
+
+      - name: Build Debug APK
+        working-directory: android
         run: |
-          bubblewrap init \
-            --manifest "https://rajahaider50.github.io/IceStockPro/manifest.webmanifest" \
-            --directory "apk-output" \
-            --package "com.rajahaider50.icestockpro" \
-            --name "IceStock Pro" \
-            --shortName "IceStock" \
-            --themeColor "#0079d0" \
-            --backgroundColor "#f7f9fc" \
-            --appVersionCode 1 \
-            --appVersionName "11.0" \
-            --skipPwaValidation || true
+          gradle assembleDebug --no-daemon
 
-      - name: Build APK
+      - name: Build Release APK
+        working-directory: android
         run: |
-          if [ -d "apk-output/IceStockPro" ]; then
-            cd apk-output/IceStockPro
-            chmod +x gradlew
-            ./gradlew assembleRelease || ./gradlew assembleDebug
-          else
-            echo "TWA project not created, creating minimal wrapper..."
-            mkdir -p apk-output/IceStockPro/app/src/main/java/com/rajahaider50/icestockpro
-            mkdir -p apk-output/IceStockPro/app/src/main/res/values
-            
-            cat > apk-output/IceStockPro/app/src/main/AndroidManifest.xml << 'MANIFEST'
-            <?xml version="1.0" encoding="utf-8"?>
-            <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.rajahaider50.icestockpro">
-              <application android:label="IceStock Pro" android:icon="@mipmap/ic_launcher" android:theme="@android:style/Theme.NoTitleBar">
-                <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTask">
-                  <intent-filter>
-                    <action android:name="android.intent.action.MAIN" />
-                    <category android:name="android.intent.category.LAUNCHER" />
-                  </intent-filter>
-                </activity>
-              </application>
-            </manifest>
-MANIFEST
-            cd apk-output/IceStockPro
-            echo "Build complete"
-          fi
+          gradle assembleRelease --no-daemon
 
-      - name: Package APK
+      - name: Find APK
+        id: find-apk
         run: |
-          APK_PATH=$(find apk-output -name "*.apk" -type f 2>/dev/null | head -1)
-          if [ -n "$APK_PATH" ]; then
-            cp "$APK_PATH" /tmp/IceStockPro.apk
-            echo "APK ready: $APK_PATH"
-          else
-            echo "No APK built, creating placeholder"
-            echo "APK build requires Android SDK" > /tmp/IceStockPro.apk
-          fi
+          APK_DEBUG=$(find android -name "*.apk" -path "*/debug/*" -type f | head -1)
+          APK_RELEASE=$(find android -name "*.apk" -path "*/release/*" -type f | head -1)
+          echo "debug=$APK_DEBUG" >> $GITHUB_OUTPUT
+          echo "release=$APK_RELEASE" >> $GITHUB_OUTPUT
+          echo "Debug APK: $APK_DEBUG"
+          echo "Release APK: $APK_RELEASE"
 
-      - name: Upload APK Artifact
+      - name: Rename and Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: IceStockPro-APK
-          path: /tmp/IceStockPro.apk
-          retention-days: 30
+          name: IceStockPro-debug
+          path: ${{ steps.find-apk.outputs.debug }}
+          retention-days: 90
+
+      - name: Rename and Upload Release APK
+        uses: actions/upload-artifact@v4
+        if: steps.find-apk.outputs.release != ''
+        with:
+          name: IceStockPro-release
+          path: ${{ steps.find-apk.outputs.release }}
+          retention-days: 90
 
       - name: Create GitHub Release
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: apk-v${{ github.run_number }}
+          tag_name: v11.0-apk-${{ github.run_number }}
           name: "IceStock Pro APK v11.0"
-          files: /tmp/IceStockPro.apk
+          files: |
+            ${{ steps.find-apk.outputs.debug }}
+            ${{ steps.find-apk.outputs.release }}
           body: |
-            IceStock Pro Android APK
-            
-            **How to install:**
-            1. Download the APK file below
-            2. Open the APK on your Android phone
-            3. Allow "Install from unknown sources" if prompted
-            4. Tap "Install" and wait
-            5. Tap "Open" to launch
-            
-            **Alternative: Install from Website**
-            Visit https://rajahaider50.github.io/IceStockPro/
-            Tap the "Install" banner that appears at the bottom.
+            ## IceStock Pro - Android APK
+
+            ### Download
+            - **IceStockPro-debug.apk** — Debug build (works on all devices)
+            - **IceStockPro-release.apk** — Release build (may need "Install from Unknown Sources")
+
+            ### Installation Steps
+            1. Download the APK file to your Android phone
+            2. Open the file from your Downloads
+            3. If prompted, allow **"Install from Unknown Sources"**
+            4. Tap **"Install"**
+            5. Tap **"Open"** when installation completes
+
+            ### Alternative: Install from Website (Recommended)
+            Visit **https://rajahaider50.github.io/IceStockPro/**
+            A banner will appear at the bottom — tap **"Install"** for instant installation.
+            This method auto-updates and needs no permissions.
+
+            ### What's Inside
+            - Dashboard with live stats
+            - Stock Management with categories
+            - Sales & Cart with machine type tracking
+            - Purchase History with profit tracking
+            - Reports with PDF export
+            - WhatsApp sharing
+            - Payment gate with 10 pricing packages
+            - Bilingual UI (Roman Urdu + English)
+            - Full offline support
           draft: false
           prerelease: false
         env:
