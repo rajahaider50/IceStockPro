@@ -16,6 +16,8 @@ import CustomerLedgerSheet from '../customers/CustomerLedgerSheet';
 import SuppliersSheet from '../suppliers/SuppliersSheet';
 import ExpensesSheet from '../expenses/ExpensesSheet';
 import WastageSheet from '../wastage/WastageSheet';
+import AdminPasswordEntry from '../payment/AdminPasswordEntry';
+import AdminPanel from '../payment/AdminPanel';
 import { updateSettings, exportAllData, importAllData, deleteAllData } from '../../db/queries';
 import { useAppStore } from '../../store/useAppStore';
 import { hashPin } from '../common/PinLock';
@@ -75,6 +77,8 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
   const [suppliersOpen, setSuppliersOpen] = useState(false);
   const [expensesOpen, setExpensesOpen] = useState(false);
   const [wastageOpen, setWastageOpen] = useState(false);
+  const [adminPassOpen, setAdminPassOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
   const [dailyTarget, setDailyTarget] = useState(String(settings.dailyTarget || ''));
   const [language, setLanguage] = useState<'en' | 'ur'>(settings.language || 'en');
   const [fontFamily, setFontFamily] = useState<FontFamily>(settings.fontFamily || 'inter');
@@ -526,6 +530,14 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
             IceStock Pro works fully offline. Your data is stored locally on this device only — no cloud, no account needed.
           </p>
         </div>
+
+        {/* Hidden Admin Panel Entry */}
+        <div className="border-t border-gray-100 pt-3">
+          <button onClick={() => setAdminPassOpen(true)}
+            className="w-full text-center py-2 tap-scale">
+            <p className="text-[9px] text-gray-300 font-medium tracking-widest">ADMIN</p>
+          </button>
+        </div>
       </div>
 
       {/* ====== SHEETS ====== */}
@@ -541,6 +553,8 @@ export default function SettingsSheet({ isOpen, onClose, settings }: Props) {
       <SuppliersSheet isOpen={suppliersOpen} onClose={() => setSuppliersOpen(false)} settings={settings} />
       <ExpensesSheet isOpen={expensesOpen} onClose={() => setExpensesOpen(false)} settings={settings} />
       <WastageSheet isOpen={wastageOpen} onClose={() => setWastageOpen(false)} settings={settings} />
+      {adminPassOpen && <AdminPasswordEntry onUnlock={() => { setAdminPassOpen(false); setAdminOpen(true); }} onCancel={() => setAdminPassOpen(false)} />}
+      <AdminPanel isOpen={adminOpen} onClose={() => setAdminOpen(false)} />
 
       {/* Delete Step 1 */}
       {deleteStep === 1 && (
