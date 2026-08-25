@@ -3,6 +3,8 @@ import Header from './components/common/Header';
 import BottomNav, { type TabKey } from './components/common/BottomNav';
 import ToastContainer from './components/common/ToastContainer';
 import DebugConsole from './components/common/DebugConsole';
+import TutorialOverlay from './tutorial/TutorialOverlay';
+import TutorialPlayButton from './tutorial/TutorialPlayButton';
 import PinLock from './components/common/PinLock';
 import PaymentGate from './components/payment/PaymentGate';
 import Dashboard from './components/dashboard/Dashboard';
@@ -221,6 +223,8 @@ export default function App() {
       <BottomNav active={activeTab} onChange={handleTabChange} />
       <ToastContainer />
       <DebugConsole />
+      <TutorialOverlay />
+      <TutorialPlayButton screen={activeTab} />
 
       <LowStockSheet
         isOpen={lowStockOpen}
