@@ -50,15 +50,38 @@ function SplashScreen() {
   );
 }
 
+function LockedFeature({ onPay }: { onPay: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 px-6">
+      <div className="w-20 h-20 rounded-full bg-brand-50 flex items-center justify-center mb-4">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-brand-500">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
+      <h3 className="text-[16px] font-bold text-gray-900 mb-1">Payment Required</h3>
+      <p className="text-[13px] text-gray-500 text-center mb-5 leading-relaxed">
+        Activate your plan to access all features including stock management, sales, purchases, and reports.
+      </p>
+      <button onClick={onPay}
+        className="w-full max-w-[240px] py-3 rounded-2xl bg-brand-500 text-white font-bold text-[14px] tap-scale">
+        Activate Now
+      </button>
+    </div>
+  );
+}
+
+type PaymentStatus = 'checking' | 'paid' | 'pending' | 'rejected' | 'unpaid';
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const [phase, setPhase] = useState<'splash' | 'ready'>('splash');
   const [lowStockCount, setLowStockCount] = useState(0);
   const [lowStockOpen, setLowStockOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
   const [unlocked, setUnlocked] = useState(() => safeSessionGet('isp_unlocked') === '1');
-  const [paid, setPaid] = useState(() => safeSessionGet('isp_paid') === '1');
-  const [skipped, setSkipped] = useState(() => safeSessionGet('isp_skipped') === '1');
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('checking');
   const settings = useAppStore((s) => s.settings);
   const setSettings = useAppStore((s) => s.setSettings);
   const refreshKey = useAppStore((s) => s.refreshKey);
@@ -88,11 +111,20 @@ export default function App() {
       try {
         const lastPayment = await getLatestApprovedPayment();
         if (lastPayment && lastPayment.status === 'approved') {
-          safeSessionSet('isp_paid', '1');
-          setPaid(true);
+          setPaymentStatus('paid');
+        } else if (lastPayment && lastPayment.status === 'pending') {
+          setPaymentStatus('pending');
+        } else if (lastPayment && lastPayment.status === 'rejected') {
+          setPaymentStatus('rejected');
+          setPaymentOpen(true);
+        } else {
+          setPaymentStatus('unpaid');
+          setPaymentOpen(true);
         }
       } catch (e) {
         console.error('Payment check error:', e);
+        setPaymentStatus('unpaid');
+        setPaymentOpen(true);
       }
     }
     init();
@@ -127,16 +159,18 @@ export default function App() {
   }
 
   const s = settings || DEFAULT_SETTINGS;
+  const isPaid = paymentStatus === 'paid';
 
   if (s.pinHash && !unlocked) {
     return <PinLock pinHash={s.pinHash} onUnlock={() => { safeSessionSet('isp_unlocked', '1'); setUnlocked(true); }} />;
   }
 
-  if (!paid && !skipped) {
-    return <PaymentGate
-      onUnlocked={() => { safeSessionSet('isp_paid', '1'); setPaid(true); }}
-      onSkip={() => { safeSessionSet('isp_skipped', '1'); setSkipped(true); }}
-    />;
+  function handleTabChange(tab: TabKey) {
+    if (!isPaid && tab !== 'dashboard') {
+      setPaymentOpen(true);
+      return;
+    }
+    setActiveTab(tab);
   }
 
   return (
@@ -152,13 +186,40 @@ export default function App() {
         {activeTab === 'dashboard' && (
           <Dashboard settings={s} refreshKey={refreshKey} onViewLowStock={() => setLowStockOpen(true)} />
         )}
-        {activeTab === 'stock' && <StockPage settings={s} refreshKey={refreshKey} />}
-        {activeTab === 'sales' && <SalesPage settings={s} refreshKey={refreshKey} />}
-        {activeTab === 'purchase' && <PurchasePage settings={s} refreshKey={refreshKey} />}
-        {activeTab === 'reports' && <ReportsPage settings={s} refreshKey={refreshKey} />}
+        {activeTab === 'stock' && (
+          isPaid ? <StockPage settings={s} refreshKey={refreshKey} /> : <LockedFeature onPay={() => setPaymentOpen(true)} />
+        )}
+        {activeTab === 'sales' && (
+          isPaid ? <SalesPage settings={s} refreshKey={refreshKey} /> : <LockedFeature onPay={() => setPaymentOpen(true)} />
+        )}
+        {activeTab === 'purchase' && (
+          isPaid ? <PurchasePage settings={s} refreshKey={refreshKey} /> : <LockedFeature onPay={() => setPaymentOpen(true)} />
+        )}
+        {activeTab === 'reports' && (
+          isPaid ? <ReportsPage settings={s} refreshKey={refreshKey} /> : <LockedFeature onPay={() => setPaymentOpen(true)} />
+        )}
       </main>
 
-      <BottomNav active={activeTab} onChange={setActiveTab} />
+      {!isPaid && (
+        <div className="bg-amber-50 border-t border-amber-200 px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+            <p className="text-[11px] text-amber-700 font-medium">
+              {paymentStatus === 'pending' ? 'Payment under review. Activate all features after admin approval.' :
+               paymentStatus === 'rejected' ? 'Payment rejected. Please submit again.' :
+               'Activate your plan to access all features.'}
+            </p>
+            {paymentStatus !== 'pending' && (
+              <button onClick={() => setPaymentOpen(true)}
+                className="ml-auto text-[11px] font-bold text-amber-700 underline shrink-0">
+                {paymentStatus === 'rejected' ? 'Retry' : 'Activate'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <BottomNav active={activeTab} onChange={handleTabChange} />
       <ToastContainer />
       <DebugConsole />
 
@@ -169,6 +230,13 @@ export default function App() {
         refreshKey={refreshKey}
       />
       <SettingsSheet isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} settings={s} />
+
+      <PaymentGate
+        isOpen={paymentOpen}
+        onClose={() => setPaymentOpen(false)}
+        onPaid={() => { setPaymentStatus('paid'); setPaymentOpen(false); }}
+        status={paymentStatus}
+      />
     </div>
   );
 }
