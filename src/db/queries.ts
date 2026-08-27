@@ -374,6 +374,15 @@ export async function deleteCategory(id: number): Promise<{ blocked: boolean; co
   return { blocked: false, count: 0 };
 }
 
+export async function forceDeleteCategory(id: number): Promise<{ deletedItems: number }> {
+  const cat = await db.categories.get(id);
+  if (!cat) return { deletedItems: 0 };
+  const itemsUsing = await db.items.where('category').equals(cat.name).toArray();
+  await Promise.all(itemsUsing.map((it) => db.items.delete(it.id!)));
+  await db.categories.delete(id);
+  return { deletedItems: itemsUsing.length };
+}
+
 export async function getCategoryItemCount(categoryName: string): Promise<number> {
   const items = await db.items.where('category').equals(categoryName).toArray();
   return items.filter((i) => i.isActive).length;
