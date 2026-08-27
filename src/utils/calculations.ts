@@ -58,6 +58,22 @@ export function computeStats(sales: SaleRecord[], purchases: PurchaseRecord[]): 
   };
 }
 
+export interface NetProfitBreakdown {
+  grossProfit: number; // profit from sales (revenue - cost of goods)
+  expenses: number; // period expenses
+  wastage: number; // period wastage loss (at cost)
+  netProfit: number; // grossProfit - expenses - wastage
+}
+
+export function computeNetProfit(
+  grossProfit: number,
+  expenses: number,
+  wastage: number
+): NetProfitBreakdown {
+  const netProfit = grossProfit - expenses - wastage;
+  return { grossProfit, expenses, wastage, netProfit };
+}
+
 export function formatCurrency(amount: number, symbol = 'Rs'): string {
   return `${symbol} ${amount.toLocaleString('en-PK', { maximumFractionDigits: 0 })}`;
 }
