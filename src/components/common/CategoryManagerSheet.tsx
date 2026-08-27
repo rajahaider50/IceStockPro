@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, Tag, IceCreamCone, GlassWater, Layers } from 'lucide-react';
 import BottomSheet from './BottomSheet';
 import ConfirmDialog from './ConfirmDialog';
-import { getAllCategories, addCategory, updateCategory, deleteCategory } from '../../db/queries';
+import { getAllCategories, addCategory, updateCategory, deleteCategory, forceDeleteCategory } from '../../db/queries';
 import { useAppStore } from '../../store/useAppStore';
 import type { Category, MachineScope } from '../../types';
 
@@ -24,7 +24,7 @@ export default function CategoryManagerSheet({ isOpen, onClose }: Props) {
   const [name, setName] = useState('');
   const [scope, setScope] = useState<MachineScope>('both');
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
-  const [blockedMsg, setBlockedMsg] = useState('');
+  const [forceTarget, setForceTarget] = useState<Category | null>(null);
   const showToast = useAppStore((s) => s.showToast);
   const triggerRefresh = useAppStore((s) => s.triggerRefresh);
 
@@ -76,12 +76,21 @@ export default function CategoryManagerSheet({ isOpen, onClose }: Props) {
     if (!deleteTarget?.id) return;
     const result = await deleteCategory(deleteTarget.id);
     if (result.blocked) {
-      setBlockedMsg(`Cannot delete — ${result.count} item(s) still use "${deleteTarget.name}". Move or delete those items first.`);
+      setForceTarget(deleteTarget);
       setDeleteTarget(null);
       return;
     }
     showToast('Category deleted');
     setDeleteTarget(null);
+    triggerRefresh();
+    load();
+  }
+
+  async function handleForceDeleteConfirm() {
+    if (!forceTarget?.id) return;
+    const result = await forceDeleteCategory(forceTarget.id);
+    showToast(`${result.deletedItems} item(s) deleted with category`);
+    setForceTarget(null);
     triggerRefresh();
     load();
   }
@@ -185,13 +194,13 @@ export default function CategoryManagerSheet({ isOpen, onClose }: Props) {
       />
 
       <ConfirmDialog
-        isOpen={!!blockedMsg}
-        title="Cannot Delete Category"
-        message={blockedMsg}
-        confirmLabel="Got it"
-        danger={false}
-        onConfirm={() => setBlockedMsg('')}
-        onCancel={() => setBlockedMsg('')}
+        isOpen={!!forceTarget}
+        title={`Category "${forceTarget?.name}" is in use`}
+        message={`Some items still belong to this category. You can move those items to another category first, or delete them along with the category now.`}
+        confirmLabel="Delete all"
+        danger
+        onConfirm={handleForceDeleteConfirm}
+        onCancel={() => setForceTarget(null)}
       />
     </>
   );
