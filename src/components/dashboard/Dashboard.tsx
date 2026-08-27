@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Wallet, TrendingUp, ShoppingBag, PackageX, IceCreamCone, GlassWater, BarChart3, Users, ReceiptText } from 'lucide-react';
+import { Wallet, TrendingUp, ShoppingBag, PackageX, IceCreamCone, GlassWater, BarChart3, Users, ReceiptText, PiggyBank, ChevronRight } from 'lucide-react';
 import { LineChart, Line, XAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import StatCard from '../common/StatCard';
 import EmptyState from '../common/EmptyState';
 import AnalyticsSheet from '../common/AnalyticsSheet';
-import { getSalesInRange, getAllPurchases, getLowStockItems, getOutstandingTotal, getExpensesTotal } from '../../db/queries';
-import { startOfDay, endOfDay, startOfWeek, startOfMonth, computeStats, formatCurrency, getTopSellingItems, getLast7DaysTrend } from '../../utils/calculations';
+import NetProfitSheet from './NetProfitSheet';
+import { getSalesInRange, getAllPurchases, getLowStockItems, getOutstandingTotal, getExpensesTotal, getWastageTotal } from '../../db/queries';
+import { startOfDay, endOfDay, startOfWeek, startOfMonth, computeStats, computeNetProfit, formatCurrency, getTopSellingItems, getLast7DaysTrend } from '../../utils/calculations';
+import type { NetProfitBreakdown } from '../../utils/calculations';
 import type { SaleRecord, PurchaseRecord, StockItem, AppSettings } from '../../types';
 
 type Period = 'today' | 'week' | 'month';
@@ -24,8 +26,11 @@ export default function Dashboard({ settings, refreshKey, onViewLowStock }: Prop
   const [allSales, setAllSales] = useState<SaleRecord[]>([]);
   const [outstandingUdhaar, setOutstandingUdhaar] = useState(0);
   const [todayExpenses, setTodayExpenses] = useState(0);
+  const [periodExpenses, setPeriodExpenses] = useState(0);
+  const [periodWastage, setPeriodWastage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [netProfitOpen, setNetProfitOpen] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -47,18 +52,23 @@ export default function Dashboard({ settings, refreshKey, onViewLowStock }: Prop
       setLowStock(low);
       setAllSales(sevenDaySales);
 
-      const [udhaar, exp] = await Promise.all([
+      const [udhaar, exp, dayExp, wast] = await Promise.all([
         getOutstandingTotal(),
         getExpensesTotal(startOfDay(now), endOfDay(now)),
+        getExpensesTotal(start, end),
+        getWastageTotal(start, end),
       ]);
       setOutstandingUdhaar(udhaar);
       setTodayExpenses(exp);
+      setPeriodExpenses(dayExp);
+      setPeriodWastage(wast);
       setLoading(false);
     }
     load();
   }, [period, refreshKey]);
 
   const stats = computeStats(sales, purchases);
+  const netBreakdown: NetProfitBreakdown = computeNetProfit(stats.totalProfit, periodExpenses, periodWastage);
   const trend = getLast7DaysTrend(allSales);
   const topItems = getTopSellingItems(sales, 4);
   const currency = settings.currency;
@@ -153,6 +163,26 @@ export default function Dashboard({ settings, refreshKey, onViewLowStock }: Prop
             </div>
           </div>
 
+          {/* Net Profit hero card */}
+          <button
+            onClick={() => setNetProfitOpen(true)}
+            className="w-full mb-4 rounded-2xl bg-gradient-to-br from-brand-600 to-brand-700 text-white p-4 tap-scale text-left"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <PiggyBank size={17} className="text-white" />
+                <p className="text-[12px] font-semibold text-brand-100">Net Profit · {period}</p>
+              </div>
+              <ChevronRight size={16} className="text-brand-100" />
+            </div>
+            <p className="text-[30px] font-extrabold text-white mt-2 leading-none">
+              {formatCurrency(netBreakdown.netProfit, currency)}
+            </p>
+            <p className="text-[11px] text-brand-100 mt-1.5">
+              {formatCurrency(stats.totalProfit, currency)} profit − {formatCurrency(periodExpenses, currency)} expenses − {formatCurrency(periodWastage, currency)} wastage
+            </p>
+          </button>
+
           {/* 7-day trend chart */}
           <div className="rounded-2xl bg-white border border-gray-100 p-4 mb-4">
             <p className="text-[13px] font-bold text-gray-900 mb-2">Last 7 Days</p>
@@ -217,6 +247,13 @@ export default function Dashboard({ settings, refreshKey, onViewLowStock }: Prop
         onClose={() => setAnalyticsOpen(false)}
         settings={settings}
         refreshKey={refreshKey}
+      />
+
+      <NetProfitSheet
+        isOpen={netProfitOpen}
+        onClose={() => setNetProfitOpen(false)}
+        breakdown={netBreakdown}
+        currency={currency}
       />
     </div>
   );
